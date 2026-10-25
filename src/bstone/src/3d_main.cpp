@@ -9651,30 +9651,51 @@ void LoadFonts()
 
 void SetViewSize()
 {
-	const auto alignment = 2;
+    viewwidth = vga_width;
 
-	viewwidth = vga_width;
+#if defined(__3DS__) || defined(_3DS)
 
-	viewheight = (ref_3d_view_height * vga_height) / vga_ref_height;
-	viewheight /= alignment;
-	viewheight *= alignment;
+    // Native full-screen 3D viewport.
+    viewheight = vga_height;
 
-	centerx = (viewwidth / 2) - 1;
+    vga_3d_view_top_y = 0;
+    vga_3d_view_bottom_y = viewheight;
+
+#else
+
+    const auto alignment = 2;
+
+    viewheight =
+        (ref_3d_view_height * vga_height) / vga_ref_height;
+
+    viewheight /= alignment;
+    viewheight *= alignment;
 
 #ifdef __vita__
-	vga_3d_view_top_y = (ref_3d_view_top_y * vga_height) / vga_ref_height + 1;
-	vga_3d_view_bottom_y = vga_3d_view_top_y + viewheight + 1;
-#else    
-	vga_3d_view_top_y = (ref_3d_view_top_y * vga_height) / vga_ref_height;
-	vga_3d_view_bottom_y = vga_3d_view_top_y + viewheight;
+    vga_3d_view_top_y =
+        (ref_3d_view_top_y * vga_height) / vga_ref_height + 1;
+
+    vga_3d_view_bottom_y =
+        vga_3d_view_top_y + viewheight + 1;
+#else
+    vga_3d_view_top_y =
+        (ref_3d_view_top_y * vga_height) / vga_ref_height;
+
+    vga_3d_view_bottom_y =
+        vga_3d_view_top_y + viewheight;
 #endif
-	screenofs = vga_3d_view_top_y * viewwidth;
 
-	// calculate trace angles and projection constants
-	CalcProjection(FOCALLENGTH);
+#endif
 
-	// build all needed compiled scalers
-	SetupScaling((3 * viewwidth) / 2);
+    centerx = (viewwidth / 2) - 1;
+
+    screenofs = vga_3d_view_top_y * viewwidth;
+
+    // Recalculate projection and ray angles.
+    CalcProjection(FOCALLENGTH);
+
+    // Rebuild sprite scaling parameters.
+    SetupScaling((3 * viewwidth) / 2);
 }
 
 void NewViewSize()
