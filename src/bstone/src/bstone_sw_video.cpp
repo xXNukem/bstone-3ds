@@ -516,13 +516,16 @@ try {
 			ui_image,
 			0.0f,
 			0.0f,
-			0.4f,
+			0.6f,
 			nullptr,
 			400.0f / vga_ref_width,
 			240.0f / vga_ref_height
 		);
 
 		C3D_FrameEnd(0);
+
+		// Ceder 1 ms para facilitar la ejecución del audio.
+		svcSleepThread(1000000LL);
 
 		return;
 

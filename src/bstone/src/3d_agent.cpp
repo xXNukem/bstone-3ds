@@ -3726,6 +3726,7 @@ int aog_input_floor()
 
 	const auto cursor_current_floor = static_cast<int>(gamestate.mapon);
 	auto cursor_target_floor = cursor_current_floor;
+	auto last_floor_direction = 0;
 
 	while (result == -2)
 	{
@@ -3742,50 +3743,65 @@ int aog_input_floor()
 
 		auto target_level = 0;
 
-		if (false)
-		{
-		}
-		else if (Keyboard[ScanCode::sc_up_arrow] ||
-			Keyboard[ScanCode::sc_right_arrow] ||
-			in_is_binding_pressed(BindingId::e_bi_forward) ||
-			in_is_binding_pressed(BindingId::e_bi_cycle_next_weapon) ||
-			in_is_binding_pressed(BindingId::e_bi_right) ||
-			in_is_binding_pressed(BindingId::e_bi_strafe_right))
-		{
-			cursor_target_floor += 1;
 
-			if (cursor_target_floor > 10)
-			{
-				cursor_target_floor = 1;
-			}
+        const bool next_floor_pressed =
+            Keyboard[ScanCode::sc_up_arrow] ||
+            Keyboard[ScanCode::sc_right_arrow] ||
+            in_is_binding_pressed(BindingId::e_bi_forward) ||
+            in_is_binding_pressed(BindingId::e_bi_cycle_next_weapon) ||
+            in_is_binding_pressed(BindingId::e_bi_right) ||
+            in_is_binding_pressed(BindingId::e_bi_strafe_right);
 
-			draw_cursor = true;
-		}
-		else if (Keyboard[ScanCode::sc_down_arrow] ||
-			Keyboard[ScanCode::sc_left_arrow] ||
-			in_is_binding_pressed(BindingId::e_bi_backward) ||
-			in_is_binding_pressed(BindingId::e_bi_cycle_previous_weapon) ||
-			in_is_binding_pressed(BindingId::e_bi_left) ||
-			in_is_binding_pressed(BindingId::e_bi_strafe_left))
-		{
-			cursor_target_floor -= 1;
+        const bool previous_floor_pressed =
+            Keyboard[ScanCode::sc_down_arrow] ||
+            Keyboard[ScanCode::sc_left_arrow] ||
+            in_is_binding_pressed(BindingId::e_bi_backward) ||
+            in_is_binding_pressed(BindingId::e_bi_cycle_previous_weapon) ||
+            in_is_binding_pressed(BindingId::e_bi_left) ||
+            in_is_binding_pressed(BindingId::e_bi_strafe_left);
 
-			if (cursor_target_floor < 1)
-			{
-				cursor_target_floor = 10;
-			}
+        const int floor_direction =
+            next_floor_pressed ? 1 :
+            previous_floor_pressed ? -1 : 0;
 
-			draw_cursor = true;
-		}
-		else if (
-			Keyboard[ScanCode::sc_space] ||
-			Keyboard[ScanCode::sc_mouse_left] ||
-			in_is_binding_pressed(BindingId::e_bi_attack))
-		{
-			target_level = cursor_target_floor;
+        const bool new_floor_press =
+            floor_direction != 0 &&
+            floor_direction != last_floor_direction;
 
-			draw_cursor = true;
-		}
+        last_floor_direction = floor_direction;
+
+        if (new_floor_press && floor_direction > 0)
+        {
+            cursor_target_floor++;
+
+            if (cursor_target_floor > 10)
+            {
+                cursor_target_floor = 1;
+            }
+
+            draw_cursor = true;
+        }
+        else if (new_floor_press && floor_direction < 0)
+        {
+            cursor_target_floor--;
+
+            if (cursor_target_floor < 1)
+            {
+                cursor_target_floor = 10;
+            }
+
+            draw_cursor = true;
+        }
+        else if (
+            Keyboard[ScanCode::sc_space] ||
+            Keyboard[ScanCode::sc_mouse_left] ||
+            in_is_binding_pressed(BindingId::e_bi_attack))
+        {
+            target_level = cursor_target_floor;
+            draw_cursor = true;
+        }
+
+
 
 		for (auto i = static_cast<int>(ScanCode::sc_1);
 			i <= static_cast<int>(ScanCode::sc_0);

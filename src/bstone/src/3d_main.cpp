@@ -9977,9 +9977,10 @@ int main(
         "--vid_renderer", "software",
         "--vid_width", "400",
         "--vid_height", "240",
-        "--snd_is_disabled", "1",
-        "--log_sync",
-        "--log_flush_every_message",
+        "--snd_is_disabled", "0",
+		"--snd_driver", "system",
+		"--snd_mix_size", "80",
+		"--snd_rate", "22050",
 		"--vid_is_vsync", "0",
 		"--vid_is_ui_stretched", "1",
     };

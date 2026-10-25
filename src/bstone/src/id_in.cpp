@@ -867,38 +867,123 @@ void in_handle_events()
 	{
 		vid_schedule_take_screenshot();
 	}
+	
 	#if defined(__3DS__) || defined(_3DS)
 
 		const u32 keys = hidKeysHeld();
 
-		// Salida de emergencia.
+		// Detectar solamente nuevas pulsaciones.
+		static u32 previous_keys = 0;
+
+		const u32 pressed = keys & ~previous_keys;
+
+		previous_keys = keys;
+
+		// -----------------------------------------
+		// Salida de emergencia: START + SELECT.
+		// -----------------------------------------
+
 		if ((keys & (KEY_START | KEY_SELECT)) ==
 			(KEY_START | KEY_SELECT))
 		{
 			Quit();
 		}
 
-		// Movimiento.
-		Keyboard[ScanCode::sc_w] = (keys & KEY_DUP) != 0;
-		Keyboard[ScanCode::sc_s] = (keys & KEY_DDOWN) != 0;
+		// -----------------------------------------
+		// Movimiento original.
+		// -----------------------------------------
 
-		// Giro de cámara.
-		Keyboard[ScanCode::sc_left_arrow] = (keys & KEY_DLEFT) != 0;
-		Keyboard[ScanCode::sc_right_arrow] = (keys & KEY_DRIGHT) != 0;
+		Keyboard[ScanCode::sc_w] =
+			(keys & KEY_DUP) != 0;
 
-		// Acciones.
-			Keyboard[ScanCode::sc_control] = (keys & KEY_A) != 0;
+		Keyboard[ScanCode::sc_s] =
+			(keys & KEY_DDOWN) != 0;
 
-			const bool action_pressed = (keys & KEY_B) != 0;
+		Keyboard[ScanCode::sc_left_arrow] =
+			(keys & KEY_DLEFT) != 0;
 
-			if (action_pressed && !Keyboard[ScanCode::sc_space])
-			{
-				LastScan = ScanCode::sc_space;
-			}
+		Keyboard[ScanCode::sc_right_arrow] =
+			(keys & KEY_DRIGHT) != 0;
 
-			Keyboard[ScanCode::sc_space] = action_pressed;
+		// -----------------------------------------
+		// A: disparar.
+		// -----------------------------------------
+
+		Keyboard[ScanCode::sc_control] =
+			(keys & KEY_A) != 0;
+
+		// -----------------------------------------
+		// B: interactuar y abrir puertas.
+		// -----------------------------------------
+
+		const bool action_pressed =
+			(keys & KEY_B) != 0;
+
+		if (action_pressed &&
+			!Keyboard[ScanCode::sc_space])
+		{
+			LastScan = ScanCode::sc_space;
+		}
+
+		Keyboard[ScanCode::sc_space] =
+			action_pressed;
+
+		// -----------------------------------------
+		// L / R: movimiento lateral.
+		// -----------------------------------------
+
+		Keyboard[ScanCode::sc_a] =
+			(keys & KEY_L) != 0;
+
+		Keyboard[ScanCode::sc_d] =
+			(keys & KEY_R) != 0;
+
+		// -----------------------------------------
+		// ZL: arma siguiente.
+		// ZR: arma anterior.
+		//
+		// Solo una acción por pulsación.
+		// BStone consume y limpia estas teclas.
+		// -----------------------------------------
+
+		if (pressed & KEY_ZL)
+		{
+			Keyboard[ScanCode::sc_e] = true;
+		}
+
+		if (pressed & KEY_ZR)
+		{
+			Keyboard[ScanCode::sc_q] = true;
+		}
+		// X: abrir y cerrar el automapa.
+		Keyboard[ScanCode::sc_tab] =
+			(pressed & KEY_X) != 0;
+
+		if (pressed & KEY_X)
+		{
+			LastScan = ScanCode::sc_tab;
+		}
+		// -----------------------------------------
+		// START: abrir menú principal.
+		//
+		// No generar Escape si SELECT está
+		// pulsado simultáneamente.
+		// -----------------------------------------
+
+		if ((pressed & KEY_START) &&
+			!(keys & KEY_SELECT))
+		{
+			Keyboard[ScanCode::sc_escape] = true;
+			LastScan = ScanCode::sc_escape;
+		}
+
+		if (!(keys & KEY_START))
+		{
+			Keyboard[ScanCode::sc_escape] = false;
+		}
 
 	#endif
+
 }
 
 //

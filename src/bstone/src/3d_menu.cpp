@@ -26,6 +26,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "jm_cio.h"
 #include "jm_lzh.h"
 #include "jm_tp.h"
+#include <cstdio>
+#include <ctime>
 
 #include "bstone_exception.h"
 #include "bstone_saved_game.h"
@@ -3290,8 +3292,55 @@ std::int16_t CP_SaveGame(
 			SETFONTCOLOR(HIGHLIGHT_TEXT_COLOR, HIGHLIGHT_BOX_COLOR);
 			VW_UpdateScreen();
 
+			#if defined(__3DS__) || defined(_3DS)
 
-			if (US_LineInput(LSM_X + LSItems.indent + 2, LSM_Y + which * LSItems.y_spacing, input, input, true, GAME_DESCRIPTION_LEN, LSM_W - LSItems.indent - 10))
+						// Generar nombre de la partida automáticamente.
+						const auto now = std::time(nullptr);
+						const auto* date = std::localtime(&now);
+
+						if (date)
+						{
+							std::snprintf(
+								input,
+								sizeof(input),
+								"E%d N%02d %02d/%02d/%02d %02d:%02d",
+								gamestate.episode + 1,
+								gamestate.mapon,
+								date->tm_mday,
+								date->tm_mon + 1,
+								(date->tm_year + 1900) % 100,
+								date->tm_hour,
+								date->tm_min
+							);
+						}
+						else
+						{
+							std::snprintf(
+								input,
+								sizeof(input),
+								"E%d N%02d",
+								gamestate.episode + 1,
+								gamestate.mapon
+							);
+						}
+
+						const bool confirmed = true;
+
+			#else
+
+						const bool confirmed = US_LineInput(
+							LSM_X + LSItems.indent + 2,
+							LSM_Y + which * LSItems.y_spacing,
+							input,
+							input,
+							true,
+							GAME_DESCRIPTION_LEN,
+							LSM_W - LSItems.indent - 10
+						);
+
+			#endif
+
+            if (confirmed)
 			{
 				SaveGamesAvail[which] = 1;
 				strcpy(&SaveGameNames[which][0], input);
@@ -4317,70 +4366,128 @@ void ReadAnyControl(
 // DRAW DIALOG AND CONFIRM YES OR NO TO QUESTION
 //
 ////////////////////////////////////////////////////////////////////
-std::int16_t Confirm(
-	const char* string)
+
+std::int16_t Confirm(const char* string)
 {
-	std::int16_t xit = 0, x, y, tick = 0, whichsnd[2] = {ESCPRESSEDSND, SHOOTSND};
+    std::int16_t xit = 0;
+    std::int16_t x, y;
+    std::int16_t tick = 0;
+    std::int16_t whichsnd[2] = {ESCPRESSEDSND, SHOOTSND};
 
+    Message(string);
 
-	Message(string);
+    SETFONTCOLOR(BORDER_TEXT_COLOR, BORDER_MED_COLOR);
+    CA_CacheGrChunk(STARTFONT + fontnumber);
 
-	// Next two lines needed for flashing cursor ...
-	//
-	SETFONTCOLOR(BORDER_TEXT_COLOR, BORDER_MED_COLOR);
-	CA_CacheGrChunk(STARTFONT + fontnumber);
+    IN_ClearKeysDown();
 
-	IN_ClearKeysDown();
+#if defined(__3DS__) || defined(_3DS)
+    // Guardar el estado inicial para evitar que el
+    // botón que abrió el diálogo lo confirme también.
+    u32 previous_keys = hidKeysHeld() & (KEY_A | KEY_B);
 
-	//
-	// BLINK CURSOR
-	//
-	x = static_cast<std::int16_t>(PrintX);
-	y = static_cast<std::int16_t>(PrintY);
-	TimeCount = 0;
-	do
-	{
-		if (TimeCount >= 10)
-		{
-			switch (tick)
-			{
-			case 0:
-				VWB_Bar(x, y, 8, 13, BORDER_MED_COLOR);
-				break;
+    bool answer_yes = false;
+    bool answer_no = false;
+#endif
 
-			case 1:
-				PrintX = x;
-				PrintY = y;
-				US_Print("_");
-			}
+    x = static_cast<std::int16_t>(PrintX);
+    y = static_cast<std::int16_t>(PrintY);
 
-			VW_UpdateScreen();
-			tick ^= 1;
-			TimeCount = 0;
-		}
+    TimeCount = 0;
 
-		// BBi
-		IN_CheckAck();
-	} while (!Keyboard[ScanCode::sc_y] && !Keyboard[ScanCode::sc_n] && !Keyboard[ScanCode::sc_escape]);
+    do
+    {
+        if (TimeCount >= 10)
+        {
+            switch (tick)
+            {
+                case 0:
+                    VWB_Bar(
+                        x, y, 8, 13,
+                        BORDER_MED_COLOR);
+                    break;
 
+                case 1:
+                    PrintX = x;
+                    PrintY = y;
+                    US_Print("_");
+                    break;
+            }
 
-	if (Keyboard[ScanCode::sc_y])
-	{
-		xit = 1;
-		ShootSnd();
-	}
+            VW_UpdateScreen();
 
-	while (Keyboard[ScanCode::sc_y] || Keyboard[ScanCode::sc_n] || Keyboard[ScanCode::sc_escape])
-	{
-		IN_CheckAck();
-	}
+            tick ^= 1;
+            TimeCount = 0;
+        }
 
-	IN_ClearKeysDown();
-	menu_play_sound(whichsnd[xit]);
-	FREEFONT(STARTFONT + fontnumber);
+        IN_CheckAck();
 
-	return xit;
+#if defined(__3DS__) || defined(_3DS)
+
+        const u32 keys = hidKeysHeld() & (KEY_A | KEY_B);
+        const u32 pressed = keys & ~previous_keys;
+
+        previous_keys = keys;
+
+        if (pressed & KEY_A)
+        {
+            answer_yes = true;
+        }
+        else if (pressed & KEY_B)
+        {
+            answer_no = true;
+        }
+
+#endif
+
+    } while (
+#if defined(__3DS__) || defined(_3DS)
+        !answer_yes &&
+        !answer_no &&
+#endif
+        !Keyboard[ScanCode::sc_y] &&
+        !Keyboard[ScanCode::sc_n] &&
+        !Keyboard[ScanCode::sc_escape]
+    );
+
+    if (
+#if defined(__3DS__) || defined(_3DS)
+        answer_yes ||
+#endif
+        Keyboard[ScanCode::sc_y])
+    {
+        xit = 1;
+        ShootSnd();
+    }
+
+    while (
+        Keyboard[ScanCode::sc_y] ||
+        Keyboard[ScanCode::sc_n] ||
+        Keyboard[ScanCode::sc_escape])
+    {
+        IN_CheckAck();
+    }
+
+#if defined(__3DS__) || defined(_3DS)
+
+    // Esperar a que se suelten A y B para que
+    // el menú siguiente no reutilice la pulsación.
+    while (hidKeysHeld() & (KEY_A | KEY_B))
+    {
+        IN_CheckAck();
+    }
+
+#endif
+
+    IN_ClearKeysDown();
+
+    menu_play_sound(whichsnd[xit]);
+
+    FREEFONT(STARTFONT + fontnumber);
+
+    return xit;
 }
+
 
 // ---------------------------------------------------------------------------
 // PRINT A MESSAGE IN A WINDOW
