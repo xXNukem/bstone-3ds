@@ -123,11 +123,13 @@ if(BSTONE_VULKAN_COMPILE_SHADERS)
 	add_dependencies(bstone bstone_vulkan_compile_shaders)
 endif()
 
-add_custom_command(
-	TARGET bstone POST_BUILD
-	COMMAND $<$<CONFIG:RELEASE>:${CMAKE_STRIP}> $<$<CONFIG:RELEASE>:$<TARGET_FILE:bstone>>
-	VERBATIM
-)
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
+    add_custom_command(
+        TARGET bstone POST_BUILD
+        COMMAND $<$<CONFIG:RELEASE>:${CMAKE_STRIP}> $<$<CONFIG:RELEASE>:$<TARGET_FILE:bstone>>
+        VERBATIM
+    )
+endif()
 
 if (BSTONE_TRIM_FILE_PATHS_IN_EXE)
 	add_dependencies(bstone bstone_ltrimcs)
@@ -265,9 +267,15 @@ if (BSTONE_USE_STATIC_LINKING)
 	endif ()
 endif ()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
+    set(BSTONE_DL_LIBS "")
+else()
+    set(BSTONE_DL_LIBS "${CMAKE_DL_LIBS}")
+endif()
+
 target_link_libraries(bstone
 	PRIVATE
-		${CMAKE_DL_LIBS}
+		${BSTONE_DL_LIBS}
 		$<$<BOOL:${BSTONE_INTERNAL_SDL2}>:SDL2::SDL2-static>
 		$<$<NOT:$<BOOL:${BSTONE_INTERNAL_SDL2}>>:SDL2W::SDL2W>
 		$<$<BOOL:${WIN32}>:wbemuuid>
@@ -1087,3 +1095,19 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Blake Stone unofficial source port")
 set(CPACK_GENERATOR "ZIP")
 set(CPACK_SOURCE_GENERATOR "ZIP")
 include(CPack)
+# Renderizador GPU para Nintendo 3DS.
+
+target_include_directories(bstone PRIVATE
+    "$ENV{DEVKITPRO}/libctru/include"
+)
+
+target_link_directories(bstone PRIVATE
+    "$ENV{DEVKITPRO}/libctru/lib"
+)
+
+target_link_libraries(bstone PRIVATE
+    citro2d
+    citro3d
+    ctru
+    m
+)

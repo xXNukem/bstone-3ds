@@ -9965,7 +9965,37 @@ int main(
 		g_args.initialize(argc, argv);
 	}
 #else
-	g_args.initialize(argc, argv);
+
+#if defined(__3DS__) || defined(_3DS)
+
+    char args_3ds[][32] =
+    {
+        "bstone",
+        "--aog",
+        "--data_dir", "sdmc:/3ds/bstone/",
+        "--profile_dir", "sdmc:/3ds/bstone/",
+        "--vid_renderer", "software",
+        "--vid_width", "400",
+        "--vid_height", "240",
+        "--snd_is_disabled", "1",
+        "--log_sync",
+        "--log_flush_every_message",
+		"--vid_is_vsync", "0",
+		"--vid_is_ui_stretched", "1",
+    };
+
+    constexpr int count = sizeof(args_3ds) / sizeof(args_3ds[0]);
+    char* argv_3ds[count];
+
+    for (int i = 0; i < count; ++i)
+        argv_3ds[i] = args_3ds[i];
+
+    g_args.initialize(count, argv_3ds);
+
+#else
+    g_args.initialize(argc, argv);
+#endif
+
 #endif
 
 	const auto opt_is_log_sync = g_args.has_option("log_sync");

@@ -5,7 +5,7 @@ Copyright (c) 2013-2024 Boris I. Bendovsky (bibendovsky@hotmail.com) and Contrib
 SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-
+#include <cstring>
 #include "an_codes.h"
 #include "id_ca.h"
 #include "id_heads.h"
@@ -17,7 +17,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "movie.h"
 #include "bstone_archiver.h"
 #include "bstone_endian.h"
-
+#if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
+extern void Quit();
+#endif
 
 class Movie
 {
@@ -301,7 +304,7 @@ bool Movie::load_buffer()
 
 		if (free_space >= (blk.recsize + AnimFrame::class_size))
 		{
-			*reinterpret_cast<AnimFrame*>(frame) = blk;
+			std::memcpy(frame, &blk, sizeof(blk));
 
 			free_space -= AnimFrame::class_size;
 			frame += AnimFrame::class_size;
@@ -342,7 +345,8 @@ bool Movie::get_frame()
 
 	buffer_ptr_ = next_ptr_;
 
-	const auto& blk = *reinterpret_cast<const AnimFrame*>(buffer_ptr_);
+	AnimFrame blk{};
+	std::memcpy(&blk, buffer_ptr_, sizeof(blk));
 
 	buffer_offset_ -= AnimFrame::class_size;
 	buffer_offset_ -= blk.recsize;
@@ -354,13 +358,35 @@ bool Movie::get_frame()
 void Movie::handle_page(
 	const Descriptor& descriptor)
 {
-	const auto& blk = *reinterpret_cast<const AnimFrame*>(buffer_ptr_);
+	AnimFrame blk{};
+	std::memcpy(&blk, buffer_ptr_, sizeof(blk));
 
 	buffer_ptr_ += AnimFrame::class_size;
 
 	auto frame = buffer_ptr_;
 
+	#if defined(__3DS__) || defined(_3DS)
+
+		hidScanInput();
+
+		const u32 keys = hidKeysHeld();
+
+		if ((keys & (KEY_START | KEY_SELECT)) ==
+			(KEY_START | KEY_SELECT))
+		{
+			::Quit();
+		}
+
+	#endif
+
 	IN_ReadControl(0, &control_info_);
+
+	#if defined(__3DS__) || defined(_3DS)
+		if (keys & KEY_A)
+		{
+			control_info_.button0 = true;
+		}
+	#endif
 
 	switch (blk.code)
 	{

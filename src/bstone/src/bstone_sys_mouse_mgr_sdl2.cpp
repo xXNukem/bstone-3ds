@@ -61,7 +61,11 @@ void Sdl2MouseMgr::operator delete(void* ptr)
 
 void Sdl2MouseMgr::do_set_relative_mode(bool is_enable)
 {
-	sdl2_ensure_result(SDL_SetRelativeMouseMode(is_enable ? SDL_TRUE : SDL_FALSE));
+#if defined(__3DS__) || defined(_3DS)
+    (void)is_enable;
+#else
+    sdl2_ensure_result(SDL_SetRelativeMouseMode(is_enable ? SDL_TRUE : SDL_FALSE));
+#endif
 }
 
 MemoryResource& Sdl2MouseMgr::get_memory_resource()

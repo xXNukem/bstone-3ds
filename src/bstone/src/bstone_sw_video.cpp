@@ -9,7 +9,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
 #include <utility>
-
+#include <chrono>
+#include <cstdio>
 #include "3d_def.h"
 #include "id_in.h"
 #include "id_vh.h"
@@ -28,6 +29,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "bstone_sys_video_mgr.h"
 #include "bstone_sys_window_mgr.h"
+#if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
+#include <citro2d.h>
+#endif
 
 namespace bstone {
 
@@ -163,6 +168,9 @@ private:
 	std::array<sys::Rectangle, 4> filler_hud_rects_{};
 	sys::Rectangle screen_dst_rect_{};
 	sys::Color filler_color_{};
+	#if defined(__3DS__) || defined(_3DS)
+		C3D_RenderTarget* gpu_top_{};
+	#endif
 
 
 	// HW
@@ -264,6 +272,262 @@ try {
 
 void SwVideo::present()
 try {
+	#if defined(__3DS__) || defined(_3DS)
+		const auto start = std::chrono::steady_clock::now();
+	#endif
+	
+	#if defined(__3DS__) || defined(_3DS)
+
+		constexpr int texture_width = 512;
+		constexpr int texture_height = 256;
+
+		static C3D_Tex gpu_screen_texture{};
+		static C3D_Tex gpu_ui_texture{};
+
+		static bool gpu_textures_ready = false;
+		static bool gpu_screen_format_ready = false;
+
+		// Comprobar que ambas imágenes caben en las texturas.
+		if (vga_width > texture_width ||
+			vga_height > texture_height ||
+			vga_ref_width > texture_width ||
+			vga_ref_height > texture_height)
+		{
+			BSTONE_THROW_STATIC_SOURCE(
+				"3DS GPU texture dimensions exceeded.");
+		}
+
+		// Crear las texturas una sola vez.
+		if (!gpu_textures_ready)
+		{
+			if (!C3D_TexInit(
+				&gpu_screen_texture,
+				texture_width,
+				texture_height,
+				GPU_RGBA8))
+			{
+				BSTONE_THROW_STATIC_SOURCE(
+					"Failed to create 3D GPU texture.");
+			}
+
+			if (!C3D_TexInit(
+				&gpu_ui_texture,
+				texture_width,
+				texture_height,
+				GPU_RGBA8))
+			{
+				C3D_TexDelete(&gpu_screen_texture);
+
+				BSTONE_THROW_STATIC_SOURCE(
+					"Failed to create UI GPU texture.");
+			}
+
+			C3D_TexSetFilter(
+				&gpu_screen_texture,
+				GPU_NEAREST,
+				GPU_NEAREST
+			);
+
+			C3D_TexSetFilter(
+				&gpu_ui_texture,
+				GPU_NEAREST,
+				GPU_NEAREST
+			);
+
+			C3D_TexSetWrap(
+				&gpu_screen_texture,
+				GPU_CLAMP_TO_EDGE,
+				GPU_CLAMP_TO_EDGE
+			);
+
+			C3D_TexSetWrap(
+				&gpu_ui_texture,
+				GPU_CLAMP_TO_EDGE,
+				GPU_CLAMP_TO_EDGE
+			);
+
+			gpu_textures_ready = true;
+		}
+
+		// Usar el formato de pantalla que ya probamos.
+		if (!gpu_screen_format_ready)
+		{
+			gfxSetScreenFormat(GFX_TOP, GSP_BGR8_OES);
+			gpu_screen_format_ready = true;
+		}
+
+		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+
+		// ---------------------------------------------
+		// 1. Convertir el escenario 3D a textura GPU.
+		// ---------------------------------------------
+
+		if (vid_is_hud)
+		{
+			auto* texels = static_cast<u32*>(
+				gpu_screen_texture.data
+			);
+
+			for (int y = 0; y < vga_height; ++y)
+			{
+				for (int x = 0; x < vga_width; ++x)
+				{
+					const int src_offset =
+						y * vga_width + x;
+
+					const u32 color = palette_[
+						sw_vga_buffer_[src_offset]
+					];
+
+					const u32 rgba =
+						(color << 8) | 0xFFU;
+
+					const u32 tile =
+						((y >> 3) * (texture_width >> 3) +
+						(x >> 3)) * 64;
+
+					const u32 morton =
+						(x & 1) |
+						((y & 1) << 1) |
+						((x & 2) << 1) |
+						((y & 2) << 2) |
+						((x & 4) << 2) |
+						((y & 4) << 3);
+
+					texels[tile + morton] = rgba;
+				}
+			}
+
+			C3D_TexFlush(&gpu_screen_texture);
+		}
+
+		// ---------------------------------------------
+		// 2. Convertir la interfaz a textura GPU.
+		// ---------------------------------------------
+
+		{
+			auto* texels = static_cast<u32*>(
+				gpu_ui_texture.data
+			);
+
+			for (int y = 0; y < vga_ref_height; ++y)
+			{
+				for (int x = 0; x < vga_ref_width; ++x)
+				{
+					const int src_offset =
+						y * vga_ref_width + x;
+
+					const u32 color = palette_[
+						vid_ui_buffer_[src_offset]
+					];
+
+					// Respetar la máscara de transparencia
+					// original de BStone.
+					const bool visible =
+						!vid_is_hud ||
+						vid_mask_buffer_[src_offset];
+
+					const u32 rgba =
+						(color << 8) |
+						(visible ? 0xFFU : 0x00U);
+
+					const u32 tile =
+						((y >> 3) * (texture_width >> 3) +
+						(x >> 3)) * 64;
+
+					const u32 morton =
+						(x & 1) |
+						((y & 1) << 1) |
+						((x & 2) << 1) |
+						((y & 2) << 2) |
+						((x & 4) << 2) |
+						((y & 4) << 3);
+
+					texels[tile + morton] = rgba;
+				}
+			}
+
+			C3D_TexFlush(&gpu_ui_texture);
+		}
+
+		// ---------------------------------------------
+		// 3. Definir las imágenes para Citro2D.
+		// ---------------------------------------------
+
+		Tex3DS_SubTexture screen_subtexture{};
+
+		screen_subtexture.width = vga_width;
+		screen_subtexture.height = vga_height;
+		screen_subtexture.left = 0.0f;
+		screen_subtexture.right =
+			float(vga_width) / texture_width;
+		screen_subtexture.top = 1.0f;
+		screen_subtexture.bottom =
+			1.0f - float(vga_height) / texture_height;
+
+		C2D_Image screen_image{
+			&gpu_screen_texture,
+			&screen_subtexture
+		};
+
+		Tex3DS_SubTexture ui_subtexture{};
+
+		ui_subtexture.width = vga_ref_width;
+		ui_subtexture.height = vga_ref_height;
+		ui_subtexture.left = 0.0f;
+		ui_subtexture.right =
+			float(vga_ref_width) / texture_width;
+		ui_subtexture.top = 1.0f;
+		ui_subtexture.bottom =
+			1.0f - float(vga_ref_height) / texture_height;
+
+		C2D_Image ui_image{
+			&gpu_ui_texture,
+			&ui_subtexture
+		};
+
+		// ---------------------------------------------
+		// 4. Dibujar el escenario y después la interfaz.
+		// ---------------------------------------------
+
+		C2D_TargetClear(
+			gpu_top_,
+			C2D_Color32(0, 0, 0, 255)
+		);
+
+		C2D_SceneBegin(gpu_top_);
+
+		// Escenario 3D de fondo.
+		if (vid_is_hud)
+		{
+			C2D_DrawImageAt(
+				screen_image,
+				0.0f,
+				0.0f,
+				0.5f,
+				nullptr,
+				400.0f / vga_width,
+				240.0f / vga_height
+			);
+		}
+
+		// Interfaz, arma, mensajes y menús.
+		C2D_DrawImageAt(
+			ui_image,
+			0.0f,
+			0.0f,
+			0.4f,
+			nullptr,
+			400.0f / vga_ref_width,
+			240.0f / vga_ref_height
+		);
+
+		C3D_FrameEnd(0);
+
+		return;
+
+	#endif
+
 	// HUD+3D stuff
 	//
 	if (vid_is_hud)
@@ -418,7 +682,50 @@ try {
 
 	// Present
 	//
+
+	#if defined(__3DS__) || defined(_3DS)
+		const auto before_present = std::chrono::steady_clock::now();
+	#endif
+
 	renderer_->present();
+
+	#if defined(__3DS__) || defined(_3DS)
+
+		const auto end = std::chrono::steady_clock::now();
+
+		static double preparation_ms = 0.0;
+		static double presentation_ms = 0.0;
+		static int frames = 0;
+
+		preparation_ms += std::chrono::duration<double, std::milli>(
+			before_present - start).count();
+
+		presentation_ms += std::chrono::duration<double, std::milli>(
+			end - before_present).count();
+
+		frames++;
+
+		if (frames >= 20)
+		{
+			FILE* file = std::fopen(
+				"sdmc:/3ds/bstone/video_performance.txt", "a");
+
+			if (file)
+			{
+				std::fprintf(file,
+					"Preparation: %.2f ms | SDL Present: %.2f ms\n",
+					preparation_ms / frames,
+					presentation_ms / frames);
+
+				std::fclose(file);
+			}
+
+			preparation_ms = 0.0;
+			presentation_ms = 0.0;
+			frames = 0;
+		}
+
+	#endif
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void SwVideo::get_palette(int offset, int count, std::uint8_t* vga_palette) const
@@ -712,6 +1019,36 @@ try {
 	const auto window_title = vid_get_window_title_for_renderer(renderer_name_);
 	window_->set_title(window_title.c_str());
 	window_->show(true);
+
+	#if defined(__3DS__) || defined(_3DS)
+
+		// SDL2 ya ha inicializado el sistema gráfico.
+		// Inicializamos Citro3D sin llamar a gfxInitDefault().
+    
+		if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE))
+		{
+			BSTONE_THROW_STATIC_SOURCE("Failed to initialize Citro3D.");
+		}
+
+		if (!C2D_Init(C2D_DEFAULT_MAX_OBJECTS))
+		{
+			C3D_Fini();
+			BSTONE_THROW_STATIC_SOURCE("Failed to initialize Citro2D.");
+		}
+
+		C2D_Prepare();
+
+		gpu_top_ = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+
+		if (!gpu_top_)
+		{
+			C2D_Fini();
+			C3D_Fini();
+			BSTONE_THROW_STATIC_SOURCE("Failed to create GPU screen target.");
+		}
+
+	#endif
+
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void SwVideo::copy_texture_to_rendering_target(

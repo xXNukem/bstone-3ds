@@ -34,6 +34,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_char_conv.h"
 #include "bstone_globals.h"
 #include "bstone_sys_keyboard_key.h"
+#if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
+#endif
 
 #define KeyInt 9 // The keyboard ISR number
 
@@ -694,6 +697,8 @@ int INL_GetMouseButtons()
 	}
 
 	return result;
+
+
 }
 
 } // namespace
@@ -862,6 +867,38 @@ void in_handle_events()
 	{
 		vid_schedule_take_screenshot();
 	}
+	#if defined(__3DS__) || defined(_3DS)
+
+		const u32 keys = hidKeysHeld();
+
+		// Salida de emergencia.
+		if ((keys & (KEY_START | KEY_SELECT)) ==
+			(KEY_START | KEY_SELECT))
+		{
+			Quit();
+		}
+
+		// Movimiento.
+		Keyboard[ScanCode::sc_w] = (keys & KEY_DUP) != 0;
+		Keyboard[ScanCode::sc_s] = (keys & KEY_DDOWN) != 0;
+
+		// Giro de cámara.
+		Keyboard[ScanCode::sc_left_arrow] = (keys & KEY_DLEFT) != 0;
+		Keyboard[ScanCode::sc_right_arrow] = (keys & KEY_DRIGHT) != 0;
+
+		// Acciones.
+			Keyboard[ScanCode::sc_control] = (keys & KEY_A) != 0;
+
+			const bool action_pressed = (keys & KEY_B) != 0;
+
+			if (action_pressed && !Keyboard[ScanCode::sc_space])
+			{
+				LastScan = ScanCode::sc_space;
+			}
+
+			Keyboard[ScanCode::sc_space] = action_pressed;
+
+	#endif
 }
 
 //
@@ -1112,21 +1149,32 @@ void IN_Ack()
 ///////////////////////////////////////////////////////////////////////////
 bool IN_UserInput(std::int32_t delay)
 {
-	const auto lasttime = static_cast<bstone::GameTimerTicks>(TimeCount);
+    const auto lasttime = static_cast<bstone::GameTimerTicks>(TimeCount);
+    IN_StartAck();
 
-	IN_StartAck();
+    do
+    {
+        VL_WaitVBL(1);
 
-	do
-	{
-		VL_WaitVBL(1);
+#if defined(__3DS__) || defined(_3DS)
 
-		if (IN_CheckAck())
-		{
-			return true;
-		}
-	} while ((TimeCount - lasttime) < delay);
+        hidScanInput();
 
-	return false;
+        if (hidKeysHeld() & KEY_A)
+        {
+            return true;
+        }
+
+#endif
+
+        if (IN_CheckAck())
+        {
+            return true;
+        }
+
+    } while ((TimeCount - lasttime) < delay);
+
+    return false;
 }
 
 std::uint8_t IN_MouseButtons()

@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_event_mgr_sdl2.h"
 
 #include "SDL.h"
-
+#include <cstdio>
 #include "bstone_assert.h"
 #include "bstone_char_conv.h"
 #include "bstone_exception.h"
@@ -16,6 +16,10 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_event_mgr_null.h"
 #include "bstone_sys_logger.h"
 #include "bstone_sys_sdl2_subsystem.h"
+#if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
+extern void Quit();
+#endif
 
 #define BSTONE_SDL_2_0_4 SDL_VERSION_ATLEAST(2, 0, 4)
 
@@ -44,6 +48,9 @@ private:
 	bool do_is_initialized() const noexcept override;
 
 	bool do_poll_event(Event& e) override;
+	#if defined(__3DS__)
+		SDL_GameController* game_controller_{};
+	#endif
 
 private:
 	static KeyboardKey map_key_code(SDL_Keycode sdl_key_code) noexcept;
@@ -75,14 +82,32 @@ try
 {
 	logger_.log_information("Start up SDL event manager.");
 
-	auto sdl2_subsystem = Sdl2Subsystem{SDL_INIT_EVENTS};
+	#if defined(__3DS__)
+		auto sdl2_subsystem = Sdl2Subsystem{SDL_INIT_GAMECONTROLLER};
+	#else
+		auto sdl2_subsystem = Sdl2Subsystem{SDL_INIT_EVENTS};
+	#endif
+
 	sdl2_subsystem.swap(sdl2_subsystem_);
+
+	#if defined(__3DS__)
+		if (SDL_NumJoysticks() > 0 && SDL_IsGameController(0))
+			game_controller_ = SDL_GameControllerOpen(0);
+
+		logger_.log_information(
+			game_controller_ ? "3DS controller initialized." : "3DS controller not detected.");
+	#endif
+	
 	is_initialized_ = true;
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 Sdl2EventMgr::~Sdl2EventMgr()
 {
 	logger_.log_information("Shut down SDL event manager.");
+	#if defined(__3DS__)
+		if (game_controller_)
+			SDL_GameControllerClose(game_controller_);
+	#endif
 }
 
 void* Sdl2EventMgr::operator new(std::size_t size)
@@ -104,10 +129,108 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 {
 	BSTONE_ASSERT(is_initialized_);
 
+	#if defined(__3DS__) || defined(_3DS)
+
+		hidScanInput();
+
+		const auto keys = hidKeysHeld();
+
+		if ((keys & (KEY_START | KEY_SELECT)) ==
+			(KEY_START | KEY_SELECT))
+		{
+			::Quit();
+		}
+
+	#endif
+
 	auto sdl_e = SDL_Event{};
+
+	#if defined(__3DS__) || defined(_3DS)
+		static bool first_poll = true;
+
+		if (first_poll)
+		{
+			logger_.log_information("3DS: Event polling active.");
+			first_poll = false;
+		}
+	#endif
 
 	while (SDL_PollEvent(&sdl_e))
 	{
+		#if defined(__3DS__) || defined(_3DS)
+
+			char message[96];
+
+			if (sdl_e.type == SDL_CONTROLLERBUTTONDOWN)
+			{
+				std::snprintf(message, sizeof(message),
+					"3DS: Controller button %u",
+					static_cast<unsigned>(sdl_e.cbutton.button));
+
+				logger_.log_information(message);
+			}
+			else if (sdl_e.type == SDL_JOYBUTTONDOWN)
+			{
+				std::snprintf(message, sizeof(message),
+					"3DS: Joystick button %u",
+					static_cast<unsigned>(sdl_e.jbutton.button));
+
+				logger_.log_information(message);
+			}
+			else if (sdl_e.type == SDL_KEYDOWN)
+			{
+				logger_.log_information("3DS: Keyboard key pressed.");
+			}
+
+		#endif
+		#if defined(__3DS__)
+				if (sdl_e.type == SDL_CONTROLLERBUTTONDOWN ||
+					sdl_e.type == SDL_CONTROLLERBUTTONUP)
+				{
+					auto key = KeyboardKey::none;
+
+					switch (sdl_e.cbutton.button)
+					{
+						case SDL_CONTROLLER_BUTTON_A:
+						case SDL_CONTROLLER_BUTTON_START:
+							key = KeyboardKey::enter;
+							break;
+
+						case SDL_CONTROLLER_BUTTON_B:
+							key = KeyboardKey::esc;
+							break;
+
+						case SDL_CONTROLLER_BUTTON_DPAD_UP:
+							key = KeyboardKey::up;
+							break;
+
+						case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+							key = KeyboardKey::down;
+							break;
+
+						case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+							key = KeyboardKey::left;
+							break;
+
+						case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+							key = KeyboardKey::right;
+							break;
+					}
+
+					if (key != KeyboardKey::none)
+					{
+						e.keyboard.type = EventType::keyboard;
+						e.keyboard.timestamp = sdl_e.common.timestamp;
+						e.keyboard.is_pressed =
+							sdl_e.type == SDL_CONTROLLERBUTTONDOWN;
+						e.keyboard.key = key;
+						e.keyboard.repeat_count = 0;
+						e.keyboard.window_id = 0;
+
+						return true;
+					}
+				}
+		#endif
 		if (handle_event(sdl_e, e))
 		{
 			e.common.timestamp = sdl_e.common.timestamp;

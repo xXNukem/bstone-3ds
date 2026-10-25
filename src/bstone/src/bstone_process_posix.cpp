@@ -12,6 +12,29 @@ SPDX-License-Identifier: MIT
 
 #include "bstone_process.h"
 
+#if defined(_3DS) || defined(__3DS__)
+
+#include "bstone_exception.h"
+
+namespace bstone {
+namespace process {
+
+CreateAndWaitForExitResult create_and_wait_for_exit(
+    const CreateAndWaitForExitParam&)
+{
+    BSTONE_THROW_STATIC_SOURCE("Processes not supported on 3DS.");
+}
+
+void open_file_or_url(const char*)
+{
+    BSTONE_THROW_STATIC_SOURCE("External programs not supported on 3DS.");
+}
+
+} // namespace process
+} // namespace bstone
+
+#else
+
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -547,5 +570,7 @@ void open_file_or_url(const char* url_utf8)
 
 } // namespace process
 } // namespace bstone
+
+#endif // Nintendo 3DS
 
 #endif // _WIN32

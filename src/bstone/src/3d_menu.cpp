@@ -31,7 +31,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_saved_game.h"
 #include "bstone_scope_exit.h"
 #include "bstone_r3r_limits.h"
-
+#if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
+#endif
 
 #define GAME_DESCRIPTION_LEN (31)
 
@@ -4291,6 +4293,23 @@ void ReadAnyControl(
 			ci->button3 = false;
 		}
 	}
+	#if defined(__3DS__) || defined(_3DS)
+
+		const u32 keys = hidKeysHeld();
+
+		if (keys & KEY_DUP)
+			ci->dir = dir_North;
+		else if (keys & KEY_DDOWN)
+			ci->dir = dir_South;
+		else if (keys & KEY_DLEFT)
+			ci->dir = dir_West;
+		else if (keys & KEY_DRIGHT)
+			ci->dir = dir_East;
+
+		ci->button0 = (keys & KEY_A) != 0;
+		ci->button1 = (keys & KEY_B) != 0;
+
+	#endif
 }
 
 ////////////////////////////////////////////////////////////////////

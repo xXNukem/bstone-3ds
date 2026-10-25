@@ -12,6 +12,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <algorithm>
 #include <chrono>
 #include <thread>
+#include <cstdio>
 
 #include "gfxv.h"
 #include "id_ca.h"
@@ -1502,7 +1503,7 @@ void CalcTics()
 	realtics = tics;
 	if (tics > MAXTICS)
 	{
-		TimeCount = std::max(TimeCount - (tics - MAXTICS), 0);
+		TimeCount = std::max<long>(TimeCount - (tics - MAXTICS), 0L);
 		tics = MAXTICS;
 	}
 }
@@ -1564,6 +1565,14 @@ void MapLSRow();
 
 void ThreeDRefresh()
 {
+	#if defined(__3DS__) || defined(_3DS)
+		static double render_ms = 0.0;
+		static double present_ms = 0.0;
+		static int measured_frames = 0;
+
+		const auto frame_start = std::chrono::steady_clock::now();
+	#endif
+
 	spotvis = SpotVis{};
 
 	bufferofs = 0;
@@ -1680,7 +1689,43 @@ void ThreeDRefresh()
 	}
 
 	// BBi
-	VL_RefreshScreen();
+	#if defined(__3DS__) || defined(_3DS)
+		const auto render_end = std::chrono::steady_clock::now();
+	#endif
+
+		VL_RefreshScreen();
+
+	#if defined(__3DS__) || defined(_3DS)
+		const auto present_end = std::chrono::steady_clock::now();
+
+		render_ms += std::chrono::duration<double, std::milli>(
+			render_end - frame_start).count();
+
+		present_ms += std::chrono::duration<double, std::milli>(
+			present_end - render_end).count();
+
+		measured_frames++;
+
+		if (measured_frames >= 20)
+		{
+			FILE* file = std::fopen(
+				"sdmc:/3ds/bstone/performance.txt", "a");
+
+			if (file)
+			{
+				std::fprintf(file,
+					"Render: %.2f ms | Present: %.2f ms\n",
+					render_ms / measured_frames,
+					present_ms / measured_frames);
+
+				std::fclose(file);
+			}
+
+			render_ms = 0.0;
+			present_ms = 0.0;
+			measured_frames = 0;
+		}
+	#endif
 
 	frameon++;
 }

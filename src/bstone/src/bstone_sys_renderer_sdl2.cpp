@@ -13,6 +13,8 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_exception_sdl2.h"
 #include "bstone_sys_texture_sdl2.h"
 #include "bstone_sys_renderer_sdl2.h"
+#include <chrono>
+#include <cstdio>
 
 namespace bstone {
 namespace sys {
