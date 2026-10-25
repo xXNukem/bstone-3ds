@@ -2,3 +2,8 @@ build/
 .vscode/
 .vs/
 .DS_Store
+
+# Nintendo 3DS - Archivos locales
+/build-3ds/
+*.bak-3ds
+*.gpu2d-ok
