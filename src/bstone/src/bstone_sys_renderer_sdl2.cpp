@@ -63,8 +63,9 @@ public:
 	void operator delete(void* ptr);
 
 private:
-	Logger& logger_;
-	Sdl2RendererUPtr sdl_renderer_{};
+    Logger& logger_;
+    Sdl2RendererUPtr sdl_renderer_{};
+
 
 private:
 	const char* do_get_name() const override;
@@ -102,6 +103,8 @@ try
 
 	const auto sdl_flags = static_cast<Uint32>(
 		param.is_vsync ? SDL_RENDERER_PRESENTVSYNC : SDL_RendererFlags{});
+	
+
 	sdl_renderer_ = Sdl2RendererUPtr{sdl2_ensure_result(SDL_CreateRenderer(&sdl_window, -1, sdl_flags))};
 	log_info();
 
@@ -162,7 +165,7 @@ try {
 
 void Sdl2Renderer::do_present()
 try {
-	SDL_RenderPresent(sdl_renderer_.get());
+    SDL_RenderPresent(sdl_renderer_.get());
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 void Sdl2Renderer::do_read_pixels(const Rectangle* rect, PixelFormat pixel_format, void* pixels, int pitch)

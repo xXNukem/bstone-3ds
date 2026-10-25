@@ -822,7 +822,13 @@ CalculateScreenSizeInputParam vid_create_screen_size_param() noexcept
 void vid_calculate_vga_dimensions() noexcept
 {
 	vga_width = vid_layout_.screen_viewport_width;
-	vga_height = vid_align_dimension((10 * vid_layout_.screen_height) / 12);
+
+	#if defined(__3DS__) || defined(_3DS)
+		vga_height = vid_layout_.screen_height;
+	#else
+		vga_height = vid_align_dimension(
+			(10 * vid_layout_.screen_height) / 12);
+	#endif
 
 	vga_width_scale = static_cast<double>(vga_width) / static_cast<double>(vga_ref_width);
 	vga_height_scale = static_cast<double>(vga_height) / static_cast<double>(vga_ref_height);

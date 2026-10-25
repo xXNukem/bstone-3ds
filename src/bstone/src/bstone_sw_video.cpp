@@ -32,7 +32,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #if defined(__3DS__) || defined(_3DS)
 #include <3ds.h>
 #include <citro2d.h>
+#include "bstone_3ds_hud.h"
 #endif
+
 
 namespace bstone {
 
@@ -170,6 +172,7 @@ private:
 	sys::Color filler_color_{};
 	#if defined(__3DS__) || defined(_3DS)
 		C3D_RenderTarget* gpu_top_{};
+		C3D_RenderTarget* gpu_bottom_{};
 	#endif
 
 
@@ -425,7 +428,11 @@ try {
 					// original de BStone.
 					const bool visible =
 						!vid_is_hud ||
-						vid_mask_buffer_[src_offset];
+						(
+							y >= ref_3d_view_top_y &&
+							y <= ref_3d_view_bottom_y &&
+							vid_mask_buffer_[src_offset]
+						);
 
 					const u32 rgba =
 						(color << 8) |
@@ -456,6 +463,12 @@ try {
 
 		Tex3DS_SubTexture screen_subtexture{};
 
+		const int screen_top = vid_is_hud ?
+			vga_3d_view_top_y : 0;
+
+		const int screen_height = vid_is_hud ?
+			viewheight : vga_height;
+
 		screen_subtexture.width = vga_width;
 		screen_subtexture.height = vga_height;
 		screen_subtexture.left = 0.0f;
@@ -471,6 +484,12 @@ try {
 		};
 
 		Tex3DS_SubTexture ui_subtexture{};
+
+		const int ui_top = vid_is_hud ?
+			ref_3d_view_top_y : 0;
+
+		const int ui_height = vid_is_hud ?
+			ref_3d_view_height : vga_ref_height;
 
 		ui_subtexture.width = vga_ref_width;
 		ui_subtexture.height = vga_ref_height;
@@ -497,7 +516,7 @@ try {
 
 		C2D_SceneBegin(gpu_top_);
 
-		// Escenario 3D de fondo.
+		// Escenario 3D a pantalla completa.
 		if (vid_is_hud)
 		{
 			C2D_DrawImageAt(
@@ -511,7 +530,8 @@ try {
 			);
 		}
 
-		// Interfaz, arma, mensajes y menús.
+		// Arma y elementos de interfaz.
+		// Los menus conservan su tamaño original.
 		C2D_DrawImageAt(
 			ui_image,
 			0.0f,
@@ -522,6 +542,35 @@ try {
 			240.0f / vga_ref_height
 		);
 
+		// ---------------------------------------------
+		// Bottom screen HUD.
+		// ---------------------------------------------
+
+		C2D_TargetClear(
+			gpu_bottom_,
+			C2D_Color32(12, 20, 30, 255));
+
+		C2D_SceneBegin(gpu_bottom_);
+
+		if (vid_is_hud)
+		{
+			n3ds_hud::draw();
+		}
+
+		C3D_FrameEnd(0);
+
+		// Ceder 1 ms para facilitar la ejecución del audio.
+		svcSleepThread(1000000LL);
+
+		return;
+
+		
+		
+
+		if (vid_is_hud)
+		{
+			n3ds_hud::draw_status();
+		}
 		C3D_FrameEnd(0);
 
 		// Ceder 1 ms para facilitar la ejecución del audio.
@@ -1048,6 +1097,16 @@ try {
 			C2D_Fini();
 			C3D_Fini();
 			BSTONE_THROW_STATIC_SOURCE("Failed to create GPU screen target.");
+		}
+
+		gfxSetScreenFormat(GFX_BOTTOM, GSP_BGR8_OES);
+
+		gpu_bottom_ = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
+
+		if (!gpu_bottom_)
+		{
+			BSTONE_THROW_STATIC_SOURCE(
+				"Failed to create bottom GPU screen target.");
 		}
 
 	#endif

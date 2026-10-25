@@ -162,10 +162,12 @@ try
 	}
 	else if (param.renderer_type == WindowRendererType::vulkan)
 	{
-#if !SDL_VERSION_ATLEAST(2, 0, 6)
-		BSTONE_THROW_STATIC_SOURCE("SDL v2.0.6 or higher required for Vulkan support.");
-#endif
-	}
+	#if !SDL_VERSION_ATLEAST(2, 0, 6)
+			BSTONE_THROW_STATIC_SOURCE("SDL v2.0.6 or higher required for Vulkan support.");
+	#endif
+		}
+
+
 
 	sdl_window_.reset(sdl2_ensure_result(SDL_CreateWindow(
 		param.title,
@@ -174,6 +176,7 @@ try
 		param.width,
 		param.height,
 		sdl_flags)));
+
 
 	sdl_window_id_ = SDL_GetWindowID(sdl_window_.get());
 
