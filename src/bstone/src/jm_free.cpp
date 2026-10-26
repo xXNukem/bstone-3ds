@@ -37,6 +37,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_content_path.h"
 #include "bstone_fs_utils.h"
 #include "bstone_sys_message_box.h"
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_intro.h"
+#endif
 
 
 extern SpanStart spanstart;
@@ -1059,6 +1062,10 @@ void PreDemo()
 
 		// Cache pic
 		//
+		#if defined(__3DS__) || defined(_3DS)
+			bstone::n3ds_intro::set_stage(
+				bstone::n3ds_intro::Stage::piracy);
+		#endif
 		CA_CacheScreen(PIRACYPIC);
 
 		// Cache and set palette.  AND  Fade it in!
@@ -1093,6 +1100,10 @@ void PreDemo()
 
 	// Cache pic
 	//
+	#if defined(__3DS__) || defined(_3DS)
+		bstone::n3ds_intro::set_stage(
+			bstone::n3ds_intro::Stage::apogee);
+	#endif
 	CA_CacheScreen(APOGEEPIC);
 
 	sd_start_music(APOGFNFM_MUS, false);
@@ -1157,35 +1168,61 @@ void PreDemo()
 
 	// Show JAM logo
 	//
-	if (!DoMovie(MovieId::intro))
-	{
-		BSTONE_THROW_STATIC_SOURCE("JAM animation (IANIM.xxx) does not exist.");
-	}
 
-	// ---------------------
-	// PC-13
-	// ---------------------
-	VL_Bar(0, 0, 320, 200, 0x14);
-	CacheDrawPic(0, 64, PC13PIC);
-	VW_UpdateScreen();
-	VW_FadeIn();
-	IN_UserInput(TickBase * 2);
+    // ---------------------------------------------
+    // JAM Productions.
+    // ---------------------------------------------
 
-	// Do A Red Flash!
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_intro::set_stage(
+        bstone::n3ds_intro::Stage::jam);
+#endif
 
-	if (assets_info.is_aog())
-	{
-		VL_FadeOut(0, 255, 39, 0, 0, 20);
-	}
-	else
-	{
-		VL_FadeOut(0, 255, 0, 0, 0, 20);
-	}
+    if (!DoMovie(MovieId::intro))
+    {
+        BSTONE_THROW_STATIC_SOURCE(
+            "JAM animation (IANIM.xxx) does not exist.");
+    }
 
-	VW_FadeOut();
+    // ---------------------------------------------
+    // PG-13 warning.
+    // ---------------------------------------------
 
-	vid_is_movie = false;
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_intro::set_stage(
+        bstone::n3ds_intro::Stage::pg13);
+#endif
+
+    VL_Bar(0, 0, 320, 200, 0x14);
+    CacheDrawPic(0, 64, PC13PIC);
+    VW_UpdateScreen();
+    VW_FadeIn();
+
+    IN_UserInput(TickBase * 2);
+
+    // ---------------------------------------------
+    // Original fade-out.
+    // ---------------------------------------------
+
+    if (assets_info.is_aog())
+    {
+        VL_FadeOut(0, 255, 39, 0, 0, 20);
+    }
+    else
+    {
+        VL_FadeOut(0, 255, 0, 0, 0, 20);
+    }
+
+    VW_FadeOut();
+
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_intro::set_stage(
+        bstone::n3ds_intro::Stage::none);
+#endif
+
+    vid_is_movie = false;
 }
+
 
 void check_for_extract_options()
 {

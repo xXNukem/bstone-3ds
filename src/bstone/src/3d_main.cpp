@@ -51,7 +51,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_text_reader.h"
 #include "bstone_text_writer.h"
 #include "bstone_version.h"
-
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_intro.h"
+#endif
 #ifdef __vita__
 #include <vitasdk.h>
 int _newlib_heap_size_user = 192 * 1024 * 1024;
@@ -9776,6 +9778,11 @@ void DemoLoop()
 				//
 				// title page
 				//
+				#if defined(__3DS__) || defined(_3DS)
+				bstone::n3ds_intro::set_stage(
+					bstone::n3ds_intro::Stage::title);
+				#endif
+
 				breakit = false;
 
 				if (assets_info.is_aog())
@@ -9915,9 +9922,14 @@ void DemoLoop()
 			VW_FadeOut();
 		}
 
-		while (true)
-		{
-			US_ControlPanel(ScanCode::sc_none);
+			#if defined(__3DS__) || defined(_3DS)
+			bstone::n3ds_intro::set_stage(
+				bstone::n3ds_intro::Stage::none);
+			#endif
+
+			while (true)
+			{
+				US_ControlPanel(ScanCode::sc_none);
 
 			if (startgame || loadedgame)
 			{

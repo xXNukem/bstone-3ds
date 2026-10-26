@@ -17,30 +17,44 @@ inline void draw_automap()
         return;
     }
 
-    // Automap viewport.
+    // ---------------------------------------------
+    // Expanded automap viewport.
+    // ---------------------------------------------
+
     constexpr float left = 8.0f;
-    constexpr float top = 80.0f;
+    constexpr float top = 64.0f;
     constexpr float right = 312.0f;
-    constexpr float bottom = 172.0f;
+    constexpr float bottom = 176.0f;
 
     constexpr float center_x = 160.0f;
-    constexpr float center_y = 126.0f;
+    constexpr float center_y = 120.0f;
     constexpr float tile_size = 8.0f;
 
+    // ---------------------------------------------
+    // Green phosphor CRT palette.
+    // ---------------------------------------------
+
+    // Explored floor:
+    // subtle translucent tint so the global
+    // background grid remains visible.
     const u32 floor_color =
-        C2D_Color32(22, 65, 83, 255);
+        C2D_Color32(36, 95, 53, 145);
 
+    // Walls: medium phosphor green.
     const u32 wall_color =
-        C2D_Color32(64, 135, 177, 255);
+        C2D_Color32(57, 126, 75, 255);
 
+    // Doors: brighter than walls.
     const u32 door_color =
-        C2D_Color32(230, 182, 65, 255);
+        C2D_Color32(100, 215, 135, 255);
 
+    // Locked doors: very bright green.
     const u32 locked_color =
-        C2D_Color32(218, 75, 65, 255);
+        C2D_Color32(174, 255, 186, 255);
 
+    // Player: almost white phosphor.
     const u32 player_color =
-        C2D_Color32(85, 255, 123, 255);
+        C2D_Color32(226, 255, 230, 255);
 
     const int player_tile_x = player->tilex;
     const int player_tile_y = player->tiley;
@@ -67,14 +81,14 @@ inline void draw_automap()
                 continue;
             }
 
-            // Respect the game's exploration data.
+            // Only show discovered tiles.
             if ((travel_table_[x][y] & TT_TRAVELED) == 0)
             {
                 continue;
             }
 
             // Smooth scrolling using the player's
-            // actual position, including fractions.
+            // actual position.
             const float screen_x =
                 center_x +
                 static_cast<float>(x - player->x) *
@@ -85,7 +99,10 @@ inline void draw_automap()
                 static_cast<float>(y - player->y) *
                 tile_size;
 
-            // Clip tiles against the automap viewport.
+            // -------------------------------------
+            // Clip tiles to the viewport.
+            // -------------------------------------
+
             const float x1 =
                 screen_x < left ? left : screen_x;
 
@@ -153,8 +170,12 @@ inline void draw_automap()
     // Player position and direction.
     // ---------------------------------------------
 
-    // Blake Stone: 0 degrees = East,
-    // 90 = North, 180 = West, 270 = South.
+    // Blake Stone:
+    // 0 degrees = East
+    // 90 = North
+    // 180 = West
+    // 270 = South
+
     const int direction =
         ((player->angle + 22) / 45) % 8;
 
@@ -171,7 +192,10 @@ inline void draw_automap()
     const int dir_x = dx[direction];
     const int dir_y = dy[direction];
 
+    // ---------------------------------------------
     // Player center.
+    // ---------------------------------------------
+
     C2D_DrawRectSolid(
         center_x - 2.0f,
         center_y - 2.0f,
@@ -180,7 +204,10 @@ inline void draw_automap()
         5.0f,
         player_color);
 
-    // Arrow tip.
+    // ---------------------------------------------
+    // Direction arrow tip.
+    // ---------------------------------------------
+
     C2D_DrawRectSolid(
         center_x + dir_x * 7 - 1,
         center_y + dir_y * 7 - 1,
@@ -189,7 +216,10 @@ inline void draw_automap()
         3.0f,
         player_color);
 
-    // Arrow wings.
+    // ---------------------------------------------
+    // Direction arrow wings.
+    // ---------------------------------------------
+
     C2D_DrawRectSolid(
         center_x + dir_x * 4 + dir_y * 2 - 1,
         center_y + dir_y * 4 - dir_x * 2 - 1,
