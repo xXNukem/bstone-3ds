@@ -1,101 +1,536 @@
-#include "bstone_3ds_automap.h"
+
 #ifndef BSTONE_3DS_HUD_INCLUDED
 #define BSTONE_3DS_HUD_INCLUDED
 
 #if defined(__3DS__) || defined(_3DS)
 
 #include "3d_def.h"
+#include "bstone_3ds_automap.h"
+#include "bstone_3ds_messages.h"
+#include "bstone_3ds_intro.h"
+
 #include <citro2d.h>
 #include <cstdio>
+#include <string>
+#include <vector>
 
 namespace bstone {
 namespace n3ds_hud {
 
-// --------------------------------------------------
-// Pixel font.
-// --------------------------------------------------
+// ---------------------------------------------
+// Green phosphor CRT palette.
+// ---------------------------------------------
 
-inline void draw_text(int x, int y, const char* value, u32 color, int scale)
+inline void draw_frame_screw(int x, int y)
 {
-    static constexpr unsigned char font[38][5] =
+    const u32 outer =
+        C2D_Color32(140, 146, 152, 255);
+
+    const u32 inner =
+        C2D_Color32(92, 98, 104, 255);
+
+    const u32 slot =
+        C2D_Color32(42, 45, 49, 255);
+
+    C2D_DrawRectSolid(
+        static_cast<float>(x),
+        static_cast<float>(y),
+        0.24f,
+        4, 4, outer);
+
+    C2D_DrawRectSolid(
+        static_cast<float>(x + 1),
+        static_cast<float>(y + 1),
+        0.25f,
+        2, 2, inner);
+
+    // Ranura del tornillo.
+    C2D_DrawRectSolid(
+        static_cast<float>(x + 1),
+        static_cast<float>(y + 2),
+        0.26f,
+        2, 1, slot);
+}
+
+inline void draw_watch_frame()
+{
+    const u32 metal_shadow =
+        C2D_Color32(24, 26, 29, 255);
+
+    const u32 metal_dark =
+        C2D_Color32(42, 46, 50, 255);
+
+    const u32 metal_mid =
+        C2D_Color32(76, 82, 88, 255);
+
+    const u32 metal_light =
+        C2D_Color32(122, 130, 137, 255);
+
+    const u32 wear_light =
+        C2D_Color32(162, 170, 176, 170);
+
+    const u32 wear_dark =
+        C2D_Color32(34, 36, 40, 190);
+
+    // -----------------------------------------
+    // Bisel exterior.
+    // -----------------------------------------
+
+    C2D_DrawRectSolid(
+        0, 0, 0.15f,
+        320, 240, metal_shadow);
+
+    C2D_DrawRectSolid(
+        0, 0, 0.16f,
+        320, 2, metal_light);
+
+    C2D_DrawRectSolid(
+        0, 0, 0.16f,
+        2, 240, metal_light);
+
+    C2D_DrawRectSolid(
+        318, 0, 0.16f,
+        2, 240, metal_dark);
+
+    C2D_DrawRectSolid(
+        0, 238, 0.16f,
+        320, 2, metal_dark);
+
+    C2D_DrawRectSolid(
+        2, 2, 0.17f,
+        316, 236, metal_mid);
+
+    C2D_DrawRectSolid(
+        3, 3, 0.18f,
+        314, 234, metal_dark);
+
+    // -----------------------------------------
+    // Labio interior del "monitor".
+    // -----------------------------------------
+
+    C2D_DrawRectSolid(
+        4, 4, 0.19f,
+        312, 1, metal_light);
+
+    C2D_DrawRectSolid(
+        4, 4, 0.19f,
+        1, 232, metal_light);
+
+    C2D_DrawRectSolid(
+        315, 4, 0.19f,
+        1, 232, metal_shadow);
+
+    C2D_DrawRectSolid(
+        4, 235, 0.19f,
+        312, 1, metal_shadow);
+
+    // -----------------------------------------
+    // Refuerzos laterales tipo carcasa.
+    // Dan sensación de "dispositivo".
+    // -----------------------------------------
+
+    C2D_DrawRectSolid(
+        0, 102, 0.20f,
+        4, 36, metal_mid);
+
+    C2D_DrawRectSolid(
+        316, 102, 0.20f,
+        4, 36, metal_mid);
+
+    C2D_DrawRectSolid(
+        1, 108, 0.21f,
+        2, 24, metal_light);
+
+    C2D_DrawRectSolid(
+        317, 108, 0.21f,
+        2, 24, metal_shadow);
+
+    // Pequeñas placas superior e inferior.
+    C2D_DrawRectSolid(
+        144, 0, 0.20f,
+        32, 4, metal_mid);
+
+    C2D_DrawRectSolid(
+        146, 1, 0.21f,
+        28, 1, metal_light);
+
+    C2D_DrawRectSolid(
+        144, 236, 0.20f,
+        32, 4, metal_mid);
+
+    C2D_DrawRectSolid(
+        146, 238, 0.21f,
+        28, 1, metal_shadow);
+
+    // -----------------------------------------
+    // Tornillos / anclajes.
+    // -----------------------------------------
+
+    draw_frame_screw(6, 6);
+    draw_frame_screw(310, 6);
+    draw_frame_screw(6, 230);
+    draw_frame_screw(310, 230);
+
+    // -----------------------------------------
+    // Desgaste / arañazos sutiles.
+    // Todo muy leve para no ensuciar demasiado.
+    // -----------------------------------------
+
+    // Arañazos superiores.
+    C2D_DrawRectSolid(
+        34, 1, 0.22f,
+        6, 1, wear_light);
+
+    C2D_DrawRectSolid(
+        35, 2, 0.22f,
+        3, 1, wear_light);
+
+    C2D_DrawRectSolid(
+        96, 2, 0.22f,
+        5, 1, wear_dark);
+
+    C2D_DrawRectSolid(
+        250, 1, 0.22f,
+        7, 1, wear_light);
+
+    // Lado izquierdo.
+    C2D_DrawRectSolid(
+        1, 52, 0.22f,
+        1, 5, wear_dark);
+
+    C2D_DrawRectSolid(
+        2, 53, 0.22f,
+        1, 2, wear_dark);
+
+    C2D_DrawRectSolid(
+        1, 184, 0.22f,
+        1, 7, wear_light);
+
+    // Lado derecho.
+    C2D_DrawRectSolid(
+        318, 74, 0.22f,
+        1, 6, wear_light);
+
+    C2D_DrawRectSolid(
+        317, 76, 0.22f,
+        1, 3, wear_light);
+
+    C2D_DrawRectSolid(
+        318, 194, 0.22f,
+        1, 5, wear_dark);
+
+    // Parte inferior.
+    C2D_DrawRectSolid(
+        48, 238, 0.22f,
+        8, 1, wear_dark);
+
+    C2D_DrawRectSolid(
+        49, 237, 0.22f,
+        4, 1, wear_dark);
+
+    C2D_DrawRectSolid(
+        266, 238, 0.22f,
+        6, 1, wear_light);
+
+    // Pequeños píxeles "machacados" en esquinas.
+    C2D_DrawRectSolid(
+        0, 0, 0.23f,
+        2, 2, metal_shadow);
+
+    C2D_DrawRectSolid(
+        318, 0, 0.23f,
+        2, 2, metal_dark);
+
+    C2D_DrawRectSolid(
+        0, 238, 0.23f,
+        2, 2, metal_dark);
+
+    C2D_DrawRectSolid(
+        318, 238, 0.23f,
+        2, 2, metal_shadow);
+}
+
+inline void draw_screen_background()
+{
+    // Superficie única del monitor de fósforo verde.
+    C2D_DrawRectSolid(
+        4, 4, 0.28f,
+        312, 232,
+        C2D_Color32(2, 9, 5, 255));
+
+    // Cuadrícula global, presente en toda la pantalla.
+    const u32 grid =
+        C2D_Color32(10, 33, 18, 255);
+
+    for (int x = 12; x < 312; x += 20)
     {
-        {7,5,5,5,7}, // 0
-        {2,6,2,2,7}, // 1
-        {7,1,7,4,7}, // 2
-        {7,1,7,1,7}, // 3
-        {5,5,7,1,1}, // 4
-        {7,4,7,1,7}, // 5
-        {7,4,7,5,7}, // 6
-        {7,1,1,1,1}, // 7
-        {7,5,7,5,7}, // 8
-        {7,5,7,1,7}, // 9
+        C2D_DrawRectSolid(
+            static_cast<float>(x),
+            6, 0.29f,
+            1, 228, grid);
+    }
 
-        {2,5,7,5,5}, // A
-        {6,5,6,5,6}, // B
-        {3,4,4,4,3}, // C
-        {6,5,5,5,6}, // D
-        {7,4,6,4,7}, // E
-        {7,4,6,4,4}, // F
-        {3,4,5,5,3}, // G
-        {5,5,7,5,5}, // H
-        {7,2,2,2,7}, // I
-        {1,1,1,5,2}, // J
-        {5,5,6,5,5}, // K
-        {4,4,4,4,7}, // L
-        {5,7,7,5,5}, // M
-        {5,7,7,7,5}, // N
-        {7,5,5,5,7}, // O
-        {6,5,6,4,4}, // P
-        {7,5,5,7,1}, // Q
-        {6,5,6,5,5}, // R
-        {3,4,7,1,6}, // S
-        {7,2,2,2,2}, // T
-        {5,5,5,5,7}, // U
-        {5,5,5,5,2}, // V
-        {5,5,7,7,5}, // W
-        {5,5,2,5,5}, // X
-        {5,5,2,2,2}, // Y
-        {7,1,2,4,7}, // Z
-
-        {5,1,2,4,5}, // %
-        {0,2,0,2,0}  // :
-    };
-
-    for (const char* p = value; *p; ++p)
+    for (int y = 12; y < 236; y += 20)
     {
-        const int glyph =
-            (*p >= '0' && *p <= '9') ? *p - '0' :
-            (*p >= 'A' && *p <= 'Z') ? *p - 'A' + 10 :
-            *p == '%' ? 36 :
-            *p == ':' ? 37 : -1;
+        C2D_DrawRectSolid(
+            6, static_cast<float>(y),
+            0.29f,
+            308, 1, grid);
+    }
+}
 
-        if (glyph >= 0)
+inline u32 crt_background()
+{
+    return C2D_Color32(2, 9, 5, 255);
+}
+
+inline u32 crt_panel()
+{
+    return C2D_Color32(5, 20, 10, 255);
+}
+
+inline u32 crt_border()
+{
+    return C2D_Color32(25, 67, 36, 255);
+}
+
+inline u32 crt_dim()
+{
+    return C2D_Color32(76, 153, 93, 255);
+}
+
+inline u32 crt_green()
+{
+    return C2D_Color32(88, 235, 121, 255);
+}
+
+inline u32 crt_bright()
+{
+    return C2D_Color32(168, 255, 179, 255);
+}
+
+// ---------------------------------------------
+// Genuine BStone menu font.
+// ---------------------------------------------
+
+inline const std::vector<std::uint8_t>& hud_font()
+{
+    auto& data = n3ds_intro::fonts().menu;
+
+    // Normally copied during the presentations.
+    // Also support starting without the intro.
+    if (data.empty())
+    {
+        const int index = STARTFONT + 4;
+
+        if (index >= 0 &&
+            index < static_cast<int>(grsegs.size()))
         {
-            for (int row = 0; row < 5; ++row)
+            const auto& source = grsegs[index];
+
+            if (source.size() >= sizeof(fontstruct))
             {
-                for (int col = 0; col < 3; ++col)
+                data.assign(
+                    source.begin(),
+                    source.end());
+            }
+        }
+    }
+
+    return data;
+}
+
+inline int text_width(const char* value)
+{
+    return n3ds_intro::font_text_width(
+        hud_font(), value);
+}
+
+inline void draw_text(
+    int x,
+    int y,
+    const char* value,
+    u32 color,
+    int scale = 1)
+{
+    const auto& data = hud_font();
+
+    if (data.empty())
+    {
+        return;
+    }
+
+    n3ds_intro::draw_font(
+        x + 1,
+        y + 1,
+        value,
+        data,
+        scale,
+        C2D_Color32(22, 71, 34, 255));
+
+    n3ds_intro::draw_font(
+        x,
+        y,
+        value,
+        data,
+        scale,
+        color);
+}
+
+// Draw original font with strict clipping.
+// Used by the scrolling R.E.B.A. terminal.
+inline void draw_clipped_text(
+    int x,
+    int y,
+    const char* value,
+    u32 color,
+    int top,
+    int bottom,
+    int right)
+{
+    const auto& data = hud_font();
+
+    if (data.size() < sizeof(fontstruct))
+    {
+        return;
+    }
+
+    const auto* font =
+        reinterpret_cast<const fontstruct*>(
+            data.data());
+
+    const int height = font->height;
+
+    if (height <= 0 || height > 64)
+    {
+        return;
+    }
+
+    for (const auto* p =
+             reinterpret_cast<const unsigned char*>(value);
+         *p; ++p)
+    {
+        unsigned char ch = *p;
+
+        if (ch >= 'a' && ch <= 'z')
+        {
+            ch = static_cast<unsigned char>(ch - 32);
+        }
+
+        const int width =
+            static_cast<unsigned char>(font->width[ch]);
+
+        const int offset = font->location[ch];
+
+        if (width > 0 && width <= 64 &&
+            offset >= 0 &&
+            static_cast<std::size_t>(offset) +
+                static_cast<std::size_t>(width * height)
+                <= data.size())
+        {
+            const auto* glyph =
+                data.data() + offset;
+
+            for (int row = 0; row < height; ++row)
+            {
+                const int py = y + row;
+
+                if (py < top || py >= bottom)
                 {
-                    if (font[glyph][row] & (1 << (2 - col)))
+                    continue;
+                }
+
+                int column = 0;
+
+                while (column < width)
+                {
+                    if (glyph[row * width + column] == 0)
+                    {
+                        ++column;
+                        continue;
+                    }
+
+                    const int begin = column;
+
+                    while (column < width &&
+                           glyph[row * width + column] != 0)
+                    {
+                        ++column;
+                    }
+
+                    const int px = x + begin;
+
+                    if (px >= right)
+                    {
+                        break;
+                    }
+
+                    const int visible_width =
+                        px + column - begin > right ?
+                        right - px :
+                        column - begin;
+
+                    if (visible_width > 0)
                     {
                         C2D_DrawRectSolid(
-                            static_cast<float>(x + col * scale),
-                            static_cast<float>(y + row * scale),
+                            static_cast<float>(px),
+                            static_cast<float>(py),
                             0.8f,
-                            static_cast<float>(scale),
-                            static_cast<float>(scale),
+                            static_cast<float>(visible_width),
+                            1,
                             color);
                     }
                 }
             }
         }
 
-        x += scale * 4;
+        x += width;
+
+        if (x >= right)
+        {
+            break;
+        }
     }
 }
 
+// ---------------------------------------------
+// ECG / health monitor.
+// ---------------------------------------------
+
+
 // --------------------------------------------------
-// Vital signs monitor.
+// Thin phosphor-green outlines on a single CRT surface.
+// No metallic borders or separate panel backgrounds.
 // --------------------------------------------------
+
+inline void draw_monitor_outline(
+    int x, int y, int width, int height)
+{
+    const u32 edge =
+        C2D_Color32(42, 110, 57, 255);
+
+    const u32 accent =
+        C2D_Color32(76, 174, 96, 255);
+
+    C2D_DrawRectSolid(
+        x, y, 0.35f, width, 1, edge);
+
+    C2D_DrawRectSolid(
+        x, y + height - 1, 0.35f,
+        width, 1, edge);
+
+    C2D_DrawRectSolid(
+        x, y, 0.35f, 1, height, edge);
+
+    C2D_DrawRectSolid(
+        x + width - 1, y, 0.35f,
+        1, height, edge);
+
+    // Small green phosphor accent.
+    C2D_DrawRectSolid(
+        x + 3, y, 0.36f,
+        7, 1, accent);
+}
 
 inline void draw_ecg()
 {
@@ -104,42 +539,25 @@ inline void draw_ecg()
         gamestate.health > 100 ? 100 :
         gamestate.health;
 
-    const u32 signal_color =
-        health > 60 ? C2D_Color32(35, 240, 75, 255) :
-        health > 25 ? C2D_Color32(255, 205, 45, 255) :
-                      C2D_Color32(255, 55, 55, 255);
+    const u32 signal =
+        health > 60 ? crt_green() :
+        health > 25 ? C2D_Color32(125, 218, 115, 255) :
+                      crt_bright();
 
-    const u32 grid_color = C2D_Color32(20, 45, 85, 255);
-
-    // Monitor frame.
+    // Pequeño acento superior.
     C2D_DrawRectSolid(
-        4, 4, 0.3f, 312, 68,
-        C2D_Color32(45, 70, 95, 255));
+        8, 8, 0.6f,
+        28, 1, signal);
 
+    // Separador entre gráfica y lectura.
     C2D_DrawRectSolid(
-        7, 7, 0.4f, 306, 62,
-        C2D_Color32(5, 12, 32, 255));
+        140, 12, 0.6f,
+        1, 34, crt_border());
 
-    // EKG grid.
-    for (int x = 12; x < 224; x += 16)
-    {
-        C2D_DrawRectSolid(
-            static_cast<float>(x),
-            12, 0.5f, 1, 48, grid_color);
-    }
+    // Onda PQRST animada.
+    const int bpm =
+        70 + ((100 - health) * 17 / 10);
 
-    for (int y = 12; y <= 60; y += 12)
-    {
-        C2D_DrawRectSolid(
-            12, static_cast<float>(y),
-            0.5f, 212, 1, grid_color);
-    }
-
-    // ---------------------------------------------
-    // Animated PQRST waveform.
-    // ---------------------------------------------
-
-    const int bpm = 70 + ((100 - health) * 17 / 10);
     const int beat_period_ms = 60000 / bpm;
 
     static constexpr int phases[] =
@@ -152,15 +570,15 @@ inline void draw_ecg()
     static constexpr int amplitudes[] =
     {
         0, 0, 2, 4, 2, 0,
-        -3, 22, -12, 0, 0,
-        2, 8, 3, 0, 0
+        -3, 18, -10, 0, 0,
+        2, 7, 3, 0, 0
     };
 
     const auto elapsed = osGetTime();
 
-    int previous_y = 39;
+    int previous_y = 29;
 
-    for (int x = 14; x < 222; ++x)
+    for (int x = 14; x < 134; ++x)
     {
         const auto sample_time =
             elapsed + static_cast<u64>((x - 14) * 8);
@@ -194,7 +612,6 @@ inline void draw_ecg()
                 }
             }
 
-            // Subtle changes between heartbeats.
             if (health > 25)
             {
                 if (beat == 0)
@@ -211,12 +628,11 @@ inline void draw_ecg()
             }
         }
 
-        // Keep the signal inside the monitor.
-        const int raw_y = 39 - wave;
+        const int raw_y = 29 - wave;
 
         const int current_y =
-            raw_y < 18 ? 18 :
-            raw_y > 56 ? 56 :
+            raw_y < 16 ? 16 :
+            raw_y > 42 ? 42 :
             raw_y;
 
         if (x == 14)
@@ -236,193 +652,351 @@ inline void draw_ecg()
             static_cast<float>(x),
             static_cast<float>(top),
             0.7f,
-            1.0f,
+            1,
             static_cast<float>(bottom - top + 1),
-            signal_color);
+            signal);
 
         previous_y = current_y;
     }
 
-    // Illuminated signal point.
     C2D_DrawRectSolid(
-        218.0f,
+        130,
         static_cast<float>(previous_y - 1),
         0.8f,
-        3.0f,
-        3.0f,
-        signal_color);
+        3, 3, signal);
 
-    // Health percentage.
-    char health_text[5]{};
+    draw_text(
+        146, 13,
+        "HEALTH",
+        crt_dim());
+
+    char number[16]{};
 
     std::snprintf(
-        health_text,
-        sizeof(health_text),
-        "%d%%",
-        health);
+        number, sizeof(number),
+        "%d%%", health);
 
-    int length = 0;
-
-    while (health_text[length] != '\0')
-    {
-        ++length;
-    }
+    const int width = text_width(number);
 
     draw_text(
-        244, 17,
-        "HEALTH",
-        C2D_Color32(107, 158, 191, 255),
-        1);
-
-    draw_text(
-        294 - length * 12,
-        33,
-        health_text,
-        signal_color,
-        3);
+        146 + (46 - width) / 2,
+        32,
+        number,
+        signal);
 }
 
-// --------------------------------------------------
-// Game status and automap area.
-// --------------------------------------------------
+// ---------------------------------------------
+// R.E.B.A. information terminal.
+// Original BStone font + vertical scrolling.
+// ---------------------------------------------
+
+inline void draw_info()
+{
+    const auto& state = message_state();
+
+    C2D_DrawRectSolid(
+        208, 8, 0.6f,
+        24, 1, crt_green());
+
+    draw_text(
+        210, 11,
+        "R.E.B.A.",
+        crt_bright());
+
+    C2D_DrawRectSolid(
+        210, 24, 0.6f,
+        96, 1, crt_border());
+
+    C2D_DrawRectSolid(
+        303, 12, 0.7f,
+        4, 4, crt_green());
+
+    constexpr int text_top = 28;
+    constexpr int text_bottom = 52;
+
+    if (state.lines.empty())
+    {
+        draw_clipped_text(
+            210, 30,
+            "STANDBY",
+            crt_dim(),
+            text_top,
+            text_bottom,
+            305);
+
+        return;
+    }
+
+    // Recalcular líneas según el ancho real.
+    static u64 cached_time = static_cast<u64>(-1);
+    static std::vector<std::string> wrapped_lines;
+
+    if (cached_time != state.started_ms)
+    {
+        cached_time = state.started_ms;
+        wrapped_lines.clear();
+
+        for (const auto& source : state.lines)
+        {
+            std::string line;
+
+            for (const char ch : source)
+            {
+                std::string candidate = line;
+                candidate += ch;
+
+                if (!line.empty() &&
+                    text_width(candidate.c_str()) > 94)
+                {
+                    wrapped_lines.push_back(line);
+                    line.clear();
+                }
+
+                line += ch;
+            }
+
+            if (!line.empty())
+            {
+                wrapped_lines.push_back(line);
+            }
+        }
+    }
+
+    const auto& data = hud_font();
+
+    if (data.size() < sizeof(fontstruct))
+    {
+        return;
+    }
+
+    const auto* font =
+        reinterpret_cast<const fontstruct*>(
+            data.data());
+
+    const int font_height = font->height;
+    const int line_height = font_height + 2;
+
+    if (font_height <= 0 ||
+        font_height > 32 ||
+        wrapped_lines.empty())
+    {
+        return;
+    }
+
+    const int visible_height =
+        text_bottom - text_top;
+
+    const int content_height =
+        static_cast<int>(wrapped_lines.size() - 1) *
+        line_height + font_height;
+
+    const int max_scroll =
+        content_height > visible_height ?
+        content_height - visible_height : 0;
+
+    int scroll = 0;
+
+    if (max_scroll > 0)
+    {
+        constexpr u64 pause_top = 1000;
+        constexpr u64 pause_bottom = 1200;
+        constexpr u64 ms_per_pixel = 50;
+
+        const u64 scrolling =
+            static_cast<u64>(max_scroll) * ms_per_pixel;
+
+        const u64 cycle =
+            pause_top + scrolling + pause_bottom;
+
+        const u64 elapsed =
+            osGetTime() - state.started_ms;
+
+        const u64 position = elapsed % cycle;
+
+        if (position > pause_top)
+        {
+            const u64 moved =
+                (position - pause_top) / ms_per_pixel;
+
+            scroll =
+                moved >= static_cast<u64>(max_scroll) ?
+                max_scroll :
+                static_cast<int>(moved);
+        }
+
+        // Scrollbar muy discreta.
+        C2D_DrawRectSolid(
+            308, text_top, 0.6f,
+            1, visible_height,
+            crt_border());
+
+        int thumb_height =
+            visible_height * visible_height /
+            content_height;
+
+        if (thumb_height < 4)
+        {
+            thumb_height = 4;
+        }
+
+        const int thumb_y =
+            text_top +
+            (visible_height - thumb_height) *
+            scroll / max_scroll;
+
+        C2D_DrawRectSolid(
+            308,
+            static_cast<float>(thumb_y),
+            0.7f,
+            1,
+            static_cast<float>(thumb_height),
+            crt_bright());
+    }
+
+    for (std::size_t i = 0;
+         i < wrapped_lines.size();
+         ++i)
+    {
+        const int y =
+            text_top +
+            static_cast<int>(i) * line_height -
+            scroll;
+
+        if (y + font_height <= text_top)
+            continue;
+
+        if (y >= text_bottom)
+            break;
+
+        draw_clipped_text(
+            210,
+            y,
+            wrapped_lines[i].c_str(),
+            crt_green(),
+            text_top,
+            text_bottom,
+            305);
+    }
+}
+
+// ---------------------------------------------
+// Automap frame and bottom status panels.
+// ---------------------------------------------
 
 inline void draw_status()
 {
-    const u32 border = C2D_Color32(49, 80, 112, 255);
-    const u32 panel = C2D_Color32(13, 27, 43, 255);
-    const u32 white = C2D_Color32(221, 237, 249, 255);
-    const u32 muted = C2D_Color32(107, 158, 191, 255);
-    const u32 cyan = C2D_Color32(55, 207, 237, 255);
-
-    // ---------------------------------------------
-    // Reserved automap area.
-    // ---------------------------------------------
-
-    C2D_DrawRectSolid(
-        4, 76, 0.2f, 312, 100, border);
-
-    C2D_DrawRectSolid(
-        6, 78, 0.3f, 308, 96,
-        C2D_Color32(5, 17, 28, 255));
-
-    const u32 grid_color =
-        C2D_Color32(14, 36, 53, 255);
-
-    for (int x = 14; x < 310; x += 20)
-    {
-        C2D_DrawRectSolid(
-            static_cast<float>(x),
-            79, 0.4f, 1, 94, grid_color);
-    }
-
-    for (int y = 86; y < 173; y += 20)
-    {
-        C2D_DrawRectSolid(
-            7, static_cast<float>(y),
-            0.4f, 306, 1, grid_color);
-    }
-
-
-    // ---------------------------------------------
-    // Three information panels.
-    // ---------------------------------------------
-
-    const int panel_x[] = {4, 108, 216};
-    const int panel_width[] = {100, 104, 100};
-
-    for (int i = 0; i < 3; ++i)
-    {
-        C2D_DrawRectSolid(
-            static_cast<float>(panel_x[i]),
-            180, 0.2f,
-            static_cast<float>(panel_width[i]),
-            56, border);
-
-        C2D_DrawRectSolid(
-            static_cast<float>(panel_x[i] + 2),
-            182, 0.3f,
-            static_cast<float>(panel_width[i] - 4),
-            52, panel);
-    }
+    const u32 bright = crt_bright();
+    const u32 dim = crt_dim();
+    const u32 green = crt_green();
 
     char number[32]{};
 
-    // ---------------------------------------------
-    // Score, tokens, floor and lives.
-    // ---------------------------------------------
+    // -----------------------------------------
+    // Score and tokens.
+    // -----------------------------------------
 
-    draw_text(10, 185, "SCORE", muted, 1);
-
-    std::snprintf(
-        number, sizeof(number), "TOK %u",
-        static_cast<unsigned>(gamestate.tokens));
-
-    draw_text(62, 185, number, muted, 1);
+    draw_text(10, 189, "SCORE", dim);
+    draw_text(66, 189, "TOK", dim);
 
     std::snprintf(
-        number, sizeof(number), "%d",
+        number, sizeof(number),
+        "%d",
         static_cast<int>(gamestate.score));
 
-    draw_text(10, 194, number, white, 2);
-
-    draw_text(10, 211, "FLOOR", muted, 1);
-    draw_text(62, 211, "LIVES", muted, 1);
+    draw_text(10, 199, number, bright);
 
     std::snprintf(
-        number, sizeof(number), "%d",
+        number, sizeof(number),
+        "%u",
+        static_cast<unsigned>(gamestate.tokens));
+
+    draw_text(66, 199, number, bright);
+
+    // -----------------------------------------
+    // Floor and lives.
+    // -----------------------------------------
+
+    draw_text(10, 212, "FLOOR", dim);
+    draw_text(62, 212, "LIVES", dim);
+
+    std::snprintf(
+        number, sizeof(number),
+        "%d",
         static_cast<int>(gamestate.mapon) + 1);
 
-    draw_text(10, 220, number, white, 2);
+    draw_text(10, 223, number, bright);
 
     std::snprintf(
-        number, sizeof(number), "%d",
+        number, sizeof(number),
+        "%d",
         gamestate.lives > 0 ?
             static_cast<int>(gamestate.lives) : 0);
 
-    draw_text(62, 220, number, white, 2);
+    draw_text(62, 223, number, bright);
 
-    // ---------------------------------------------
+    // -----------------------------------------
     // Current weapon.
-    // ---------------------------------------------
+    // -----------------------------------------
 
     const char* weapon = "NONE";
 
     switch (gamestate.weapon)
     {
-        case wp_autocharge: weapon = "AUTOCHARGE"; break;
-        case wp_pistol: weapon = "PISTOL"; break;
-        case wp_burst_rifle: weapon = "BURST RIFLE"; break;
-        case wp_ion_cannon: weapon = "ION CANNON"; break;
-        case wp_grenade: weapon = "GRENADE"; break;
-        case wp_bfg_cannon: weapon = "BFG CANNON"; break;
-        default: break;
+        case wp_autocharge:
+            weapon = "AUTOCHARGE";
+            break;
+
+        case wp_pistol:
+            weapon = "PISTOL";
+            break;
+
+        case wp_burst_rifle:
+            weapon = "BURST RIFLE";
+            break;
+
+        case wp_ion_cannon:
+            weapon = "ION CANNON";
+            break;
+
+        case wp_grenade:
+            weapon = "GRENADE";
+            break;
+
+        case wp_bfg_cannon:
+            weapon = "BFG CANNON";
+            break;
+
+        default:
+            break;
     }
 
-    draw_text(114, 185, "WEAPON", muted, 1);
-    draw_text(114, 195, weapon, white, 2);
+    draw_text(114, 189, "WEAPON", dim);
+    draw_text(114, 199, weapon, bright);
 
-    // ---------------------------------------------
-    // Ammunition and weapon charge.
-    // ---------------------------------------------
+    // -----------------------------------------
+    // Ammunition.
+    // -----------------------------------------
 
     C2D_DrawRectSolid(
-        114, 225, 0.5f, 88, 6,
-        C2D_Color32(30, 45, 59, 255));
+        114, 225, 0.5f,
+        88, 5,
+        C2D_Color32(25, 67, 36, 255));
 
     if (gamestate.weapon == wp_autocharge)
     {
-        const bool ready = gamestate.weapon_wait == 0;
+        const bool ready =
+            gamestate.weapon_wait == 0;
 
         draw_text(
             114, 212,
             ready ? "READY" : "WAIT",
-            ready ? cyan : muted,
-            2);
+            ready ? green : dim);
 
         if (ready)
         {
             C2D_DrawRectSolid(
-                114, 225, 0.6f, 88, 6, cyan);
+                114, 225, 0.6f,
+                88, 5, green);
         }
     }
     else if (gamestate.weapon >= 0)
@@ -432,31 +1006,36 @@ inline void draw_status()
             gamestate.ammo > 100 ? 100 :
             gamestate.ammo;
 
-        draw_text(114, 213, "AMMO", muted, 1);
+        draw_text(114, 212, "AMMO", dim);
 
         std::snprintf(
-            number, sizeof(number), "%d%%", ammo);
+            number, sizeof(number),
+            "%d%%", ammo);
 
-        draw_text(154, 210, number, white, 2);
+        draw_text(165, 212, number, bright);
 
         if (ammo > 0)
         {
             C2D_DrawRectSolid(
                 114, 225, 0.6f,
-                static_cast<float>(88 * ammo) / 100.0f,
-                6, cyan);
+                static_cast<float>(88 * ammo) / 100,
+                5, green);
         }
     }
 
-    // ---------------------------------------------
+    // -----------------------------------------
     // Access cards.
-    // ---------------------------------------------
+    // -----------------------------------------
 
-    draw_text(222, 185, "ACCESS", muted, 1);
+    draw_text(222, 189, "ACCESS", dim);
 
     const int keys[] =
     {
-        kt_red, kt_yellow, kt_green, kt_blue, kt_gold
+        kt_red,
+        kt_yellow,
+        kt_green,
+        kt_blue,
+        kt_gold
     };
 
     const u32 key_colors[] =
@@ -474,53 +1053,116 @@ inline void draw_status()
             static_cast<float>(222 + i * 18);
 
         C2D_DrawRectSolid(
-            x, 195, 0.5f, 15, 11, key_colors[i]);
+            x, 199, 0.5f,
+            15, 11, key_colors[i]);
 
         C2D_DrawRectSolid(
-            x + 2, 197, 0.6f, 11, 7,
+            x + 2, 201, 0.6f,
+            11, 7,
             gamestate.numkeys[keys[i]] > 0 ?
                 key_colors[i] :
-                C2D_Color32(15, 25, 37, 255));
+                crt_background());
     }
 
-    // ---------------------------------------------
-    // Radar energy.
-    // ---------------------------------------------
+    // -----------------------------------------
+    // Radar.
+    // -----------------------------------------
 
     const int radar =
         gamestate.rpower < 0 ? 0 :
         gamestate.rpower > MAX_RADAR_ENERGY ? 100 :
         gamestate.rpower * 100 / MAX_RADAR_ENERGY;
 
-    draw_text(222, 213, "RADAR", muted, 1);
+    draw_text(222, 212, "RADAR", dim);
 
     std::snprintf(
-        number, sizeof(number), "%d%%", radar);
+        number, sizeof(number),
+        "%d%%", radar);
 
-    draw_text(286, 213, number, white, 1);
+    draw_text(284, 212, number, bright);
 
     C2D_DrawRectSolid(
-        222, 225, 0.5f, 86, 6,
-        C2D_Color32(30, 45, 59, 255));
+        222, 225, 0.5f,
+        86, 5,
+        C2D_Color32(25, 67, 36, 255));
 
     if (radar > 0)
     {
         C2D_DrawRectSolid(
             222, 225, 0.6f,
-            static_cast<float>(86 * radar) / 100.0f,
-            6, cyan);
+            static_cast<float>(86 * radar) / 100,
+            5, green);
     }
 }
 
-// --------------------------------------------------
-// Draw the complete bottom-screen HUD.
-// --------------------------------------------------
+// ---------------------------------------------
+// Moving CRT interference.
+// Only drawn during gameplay.
+// ---------------------------------------------
+
+inline void draw_interference()
+{
+    // One pixel every 18 ms. Smooth movement
+    // without needing a separate animation loop.
+    const int y =
+        static_cast<int>((osGetTime() / 18) % 240);
+
+    // Faint static scanlines.
+    for (int line = 8; line < 235; line += 8)
+    {
+        C2D_DrawRectSolid(
+            6,
+            static_cast<float>(line),
+            0.90f,
+            308, 1,
+            C2D_Color32(63, 147, 76, 15));
+    }
+
+    // Soft moving interference line.
+    C2D_DrawRectSolid(
+        6,
+        static_cast<float>(y),
+        0.95f,
+        308, 2,
+        C2D_Color32(130, 255, 151, 48));
+
+    // Very faint trail immediately behind it.
+    if (y >= 3)
+    {
+        C2D_DrawRectSolid(
+            6,
+            static_cast<float>(y - 3),
+            0.94f,
+            308, 1,
+            C2D_Color32(88, 220, 112, 20));
+    }
+}
+
+// ---------------------------------------------
+// Complete bottom screen.
+// ---------------------------------------------
 
 inline void draw()
 {
+    C2D_DrawRectSolid(
+        0, 0, 0.1f,
+        320, 240,
+        crt_background());
+
+    // Carcasa exterior física.
+    draw_watch_frame();
+
+    // Superficie única del monitor.
+    draw_screen_background();
+
+    // Contenido HUD.
     draw_ecg();
     draw_status();
     draw_automap();
+    draw_info();
+
+    // Interferencia decorativa.
+    draw_interference();
 }
 
 } // namespace n3ds_hud

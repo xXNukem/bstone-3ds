@@ -33,7 +33,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <3ds.h>
 #include <citro2d.h>
 #include "bstone_3ds_hud.h"
+#include "bstone_3ds_intro.h"
 #endif
+
 
 
 namespace bstone {
@@ -555,6 +557,10 @@ try {
 		if (vid_is_hud)
 		{
 			n3ds_hud::draw();
+		}
+		else
+		{
+			n3ds_intro::draw();
 		}
 
 		C3D_FrameEnd(0);

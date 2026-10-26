@@ -33,7 +33,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_memory_stream.h"
 #include "bstone_saved_game.h"
 #include "bstone_string_helper.h"
-
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_messages.h"
+#endif
 // From 3d_debug.cpp
 const objtype* find_countable_enemy();
 const statobj_t* find_bonus_item();
@@ -1789,6 +1791,7 @@ void GiveToken(
 // --------------------------------------------------------------------------
 bool DisplayInfoMsg(
 	const std::string& Msg,
+	
 	msg_priorities Priority,
 	std::int16_t DisplayTime,
 	std::int16_t MsgType)
@@ -1830,6 +1833,10 @@ bool DisplayInfoMsg(
 		}
 
 		gamestate.msg = Msg;
+
+		#if defined(__3DS__) || defined(_3DS)
+			bstone::n3ds_hud::capture_message(Msg, MsgType);
+		#endif
 
 		DrawInfoArea_COUNT = InitInfoArea_COUNT = 3;
 
