@@ -37,7 +37,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #endif
 
 
-
+#if defined(__3DS__) || defined(_3DS)
+extern bool n3ds_stereo_active;
+#endif
 namespace bstone {
 
 namespace {
@@ -174,6 +176,7 @@ private:
 	sys::Color filler_color_{};
 	#if defined(__3DS__) || defined(_3DS)
 		C3D_RenderTarget* gpu_top_{};
+		C3D_RenderTarget* gpu_top_right_{};
 		C3D_RenderTarget* gpu_bottom_{};
 	#endif
 
@@ -287,6 +290,7 @@ try {
 		constexpr int texture_height = 256;
 
 		static C3D_Tex gpu_screen_texture{};
+		static C3D_Tex gpu_screen_texture_right{};
 		static C3D_Tex gpu_ui_texture{};
 
 		static bool gpu_textures_ready = false;
@@ -302,7 +306,7 @@ try {
 				"3DS GPU texture dimensions exceeded.");
 		}
 
-		// Crear las texturas una sola vez.
+		// Crear las tres texturas una sola vez.
 		if (!gpu_textures_ready)
 		{
 			if (!C3D_TexInit(
@@ -312,7 +316,19 @@ try {
 				GPU_RGBA8))
 			{
 				BSTONE_THROW_STATIC_SOURCE(
-					"Failed to create 3D GPU texture.");
+					"Failed to create left eye GPU texture.");
+			}
+
+			if (!C3D_TexInit(
+				&gpu_screen_texture_right,
+				texture_width,
+				texture_height,
+				GPU_RGBA8))
+			{
+				C3D_TexDelete(&gpu_screen_texture);
+
+				BSTONE_THROW_STATIC_SOURCE(
+					"Failed to create right eye GPU texture.");
 			}
 
 			if (!C3D_TexInit(
@@ -321,35 +337,32 @@ try {
 				texture_height,
 				GPU_RGBA8))
 			{
+				C3D_TexDelete(&gpu_screen_texture_right);
 				C3D_TexDelete(&gpu_screen_texture);
 
 				BSTONE_THROW_STATIC_SOURCE(
 					"Failed to create UI GPU texture.");
 			}
 
-			C3D_TexSetFilter(
+			C3D_Tex* textures[] =
+			{
 				&gpu_screen_texture,
-				GPU_NEAREST,
-				GPU_NEAREST
-			);
+				&gpu_screen_texture_right,
+				&gpu_ui_texture
+			};
 
-			C3D_TexSetFilter(
-				&gpu_ui_texture,
-				GPU_NEAREST,
-				GPU_NEAREST
-			);
+			for (auto* texture : textures)
+			{
+				C3D_TexSetFilter(
+					texture,
+					GPU_NEAREST,
+					GPU_NEAREST);
 
-			C3D_TexSetWrap(
-				&gpu_screen_texture,
-				GPU_CLAMP_TO_EDGE,
-				GPU_CLAMP_TO_EDGE
-			);
-
-			C3D_TexSetWrap(
-				&gpu_ui_texture,
-				GPU_CLAMP_TO_EDGE,
-				GPU_CLAMP_TO_EDGE
-			);
+				C3D_TexSetWrap(
+					texture,
+					GPU_CLAMP_TO_EDGE,
+					GPU_CLAMP_TO_EDGE);
+			}
 
 			gpu_textures_ready = true;
 		}
@@ -364,46 +377,54 @@ try {
 		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 
 		// ---------------------------------------------
-		// 1. Convertir el escenario 3D a textura GPU.
+		// 1. Convertir ambos ojos del escenario a texturas GPU.
 		// ---------------------------------------------
+
+		const bool stereo_active =
+			vid_is_hud && ::n3ds_stereo_active;
 
 		if (vid_is_hud)
 		{
-			auto* texels = static_cast<u32*>(
-				gpu_screen_texture.data
-			);
+			const int eye_count = stereo_active ? 2 : 1;
 
-			for (int y = 0; y < vga_height; ++y)
+			for (int eye = 0; eye < eye_count; ++eye)
 			{
-				for (int x = 0; x < vga_width; ++x)
+				auto& texture = eye == 0 ?
+					gpu_screen_texture : gpu_screen_texture_right;
+
+				auto* texels = static_cast<u32*>(texture.data);
+				const int source_base = eye * vga_area;
+
+				for (int y = 0; y < vga_height; ++y)
 				{
-					const int src_offset =
-						y * vga_width + x;
+					for (int x = 0; x < vga_width; ++x)
+					{
+						const int src_offset =
+							source_base + y * vga_width + x;
 
-					const u32 color = palette_[
-						sw_vga_buffer_[src_offset]
-					];
+						const u32 color = palette_[
+							sw_vga_buffer_[src_offset]];
 
-					const u32 rgba =
-						(color << 8) | 0xFFU;
+						const u32 rgba = (color << 8) | 0xFFU;
 
-					const u32 tile =
-						((y >> 3) * (texture_width >> 3) +
-						(x >> 3)) * 64;
+						const u32 tile =
+							((y >> 3) * (texture_width >> 3) +
+							(x >> 3)) * 64;
 
-					const u32 morton =
-						(x & 1) |
-						((y & 1) << 1) |
-						((x & 2) << 1) |
-						((y & 2) << 2) |
-						((x & 4) << 2) |
-						((y & 4) << 3);
+						const u32 morton =
+							(x & 1) |
+							((y & 1) << 1) |
+							((x & 2) << 1) |
+							((y & 2) << 2) |
+							((x & 4) << 2) |
+							((y & 4) << 3);
 
-					texels[tile + morton] = rgba;
+						texels[tile + morton] = rgba;
+					}
 				}
-			}
 
-			C3D_TexFlush(&gpu_screen_texture);
+				C3D_TexFlush(&texture);
+			}
 		}
 
 		// ---------------------------------------------
@@ -485,6 +506,11 @@ try {
 			&screen_subtexture
 		};
 
+		C2D_Image screen_image_right{
+			&gpu_screen_texture_right,
+			&screen_subtexture
+		};
+
 		Tex3DS_SubTexture ui_subtexture{};
 
 		const int ui_top = vid_is_hud ?
@@ -508,41 +534,56 @@ try {
 		};
 
 		// ---------------------------------------------
-		// 4. Dibujar el escenario y después la interfaz.
+		// 4. Dibujar cada perspectiva en su ojo.
 		// ---------------------------------------------
 
-		C2D_TargetClear(
-			gpu_top_,
-			C2D_Color32(0, 0, 0, 255)
-		);
-
-		C2D_SceneBegin(gpu_top_);
-
-		// Escenario 3D a pantalla completa.
-		if (vid_is_hud)
+		C3D_RenderTarget* top_targets[] =
 		{
-			C2D_DrawImageAt(
-				screen_image,
-				0.0f,
-				0.0f,
-				0.5f,
-				nullptr,
-				400.0f / vga_width,
-				240.0f / vga_height
-			);
-		}
+			gpu_top_,
+			gpu_top_right_
+		};
 
-		// Arma y elementos de interfaz.
-		// Los menus conservan su tamaño original.
-		C2D_DrawImageAt(
-			ui_image,
-			0.0f,
-			0.0f,
-			0.6f,
-			nullptr,
-			400.0f / vga_ref_width,
-			240.0f / vga_ref_height
-		);
+		for (int eye = 0; eye < 2; ++eye)
+		{
+			auto* target = top_targets[eye];
+
+			C2D_TargetClear(
+				target,
+				C2D_Color32(0, 0, 0, 255));
+
+			C2D_SceneBegin(target);
+
+			if (vid_is_hud)
+			{
+				// Stereo eye order diagnostic.
+				// Diagnostic: identical image for both eyes.
+				const C2D_Image& eye_image =
+					eye == 1 && stereo_active ?
+					screen_image_right :
+					screen_image;
+
+
+
+				C2D_DrawImageAt(
+					eye_image,
+					0.0f,
+					0.0f,
+					0.5f,
+					nullptr,
+					400.0f / vga_width,
+					240.0f / vga_height);
+			}
+
+			// The 2D user interface is identical for both eyes.
+			C2D_DrawImageAt(
+				ui_image,
+				0.0f,
+				0.0f,
+				0.6f,
+				nullptr,
+				400.0f / vga_ref_width,
+				240.0f / vga_ref_height);
+		}
 
 		// ---------------------------------------------
 		// Bottom screen HUD.
@@ -563,20 +604,6 @@ try {
 			n3ds_intro::draw();
 		}
 
-		C3D_FrameEnd(0);
-
-		// Ceder 1 ms para facilitar la ejecución del audio.
-		svcSleepThread(1000000LL);
-
-		return;
-
-		
-		
-
-		if (vid_is_hud)
-		{
-			n3ds_hud::draw_status();
-		}
 		C3D_FrameEnd(0);
 
 		// Ceder 1 ms para facilitar la ejecución del audio.
@@ -1096,13 +1123,29 @@ try {
 
 		C2D_Prepare();
 
-		gpu_top_ = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+		// Enable native 3DS stereoscopic display.
+		gfxSet3D(true);
+
+		// Left eye.
+		gpu_top_ = C2D_CreateScreenTarget(
+			GFX_TOP,
+			GFX_LEFT);
 
 		if (!gpu_top_)
 		{
-			C2D_Fini();
-			C3D_Fini();
-			BSTONE_THROW_STATIC_SOURCE("Failed to create GPU screen target.");
+			BSTONE_THROW_STATIC_SOURCE(
+				"Failed to create left eye render target.");
+		}
+
+		// Right eye.
+		gpu_top_right_ = C2D_CreateScreenTarget(
+			GFX_TOP,
+			GFX_RIGHT);
+
+		if (!gpu_top_right_)
+		{
+			BSTONE_THROW_STATIC_SOURCE(
+				"Failed to create right eye render target.");
 		}
 
 		gfxSetScreenFormat(GFX_BOTTOM, GSP_BGR8_OES);

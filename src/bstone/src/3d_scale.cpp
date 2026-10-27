@@ -10,7 +10,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_vl.h"
 #include "bstone_sprite.h"
 #include "bstone_sprite_cache.h"
-
+#if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
+#endif
 
 extern bstone::SpriteCache vid_sprite_cache;
 
@@ -125,10 +127,13 @@ void generic_scale_shape(
 
 	const auto half_height = height / 2;
 
-	const auto offset_x =
+
+	auto offset_x =
 		is_player_weapon ?
 		(viewwidth - height) / 2 :
 		xcenter - half_height;
+
+
 
 	const auto offset_y =
 		is_player_weapon ?
@@ -242,7 +247,7 @@ void generic_scale_shape(
 				continue;
 			}
 
-			const auto pixel_offset = vl_get_offset(0, x, y);
+			const auto pixel_offset = vl_get_offset(bufferofs, x, y);
 			auto color_index = static_cast<std::uint8_t>(sprite_color);
 
 			if (draw_mode == ShapeDrawMode::shaded)

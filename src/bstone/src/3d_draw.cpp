@@ -13,7 +13,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <chrono>
 #include <thread>
 #include <cstdio>
-
+#include <cmath>
 #include "gfxv.h"
 #include "id_ca.h"
 #include "id_heads.h"
@@ -32,7 +32,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #define MASKABLE_DOORS (0)
 #define MASKABLE_POSTS (MASKABLE_DOORS)
-
+#if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
+#endif
 
 namespace
 {
@@ -141,6 +143,12 @@ double viewy; // the focal point
 int viewangle;
 double viewsin;
 double viewcos;
+
+#if defined(__3DS__) || defined(_3DS)
+double n3ds_stereo_eye_offset = 0.0;
+bool n3ds_stereo_active = false;
+double n3ds_stereo_projection_center = 0.0;
+#endif
 
 char thetile[64];
 std::uint8_t* mytile;
@@ -274,7 +282,17 @@ void TransformActor(
 		return;
 	}
 
-	ob->viewx = static_cast<std::int16_t>(centerx + (ny * scale_ / nx));
+	#if defined(__3DS__) || defined(_3DS)
+		const double projection_center =
+			n3ds_stereo_active ?
+			n3ds_stereo_projection_center :
+			static_cast<double>(centerx);
+	#else
+		const double projection_center = centerx;
+	#endif
+
+	ob->viewx = static_cast<std::int16_t>(projection_center + (ny * scale_ / nx));
+
 	ob->viewheight = static_cast<std::uint16_t>(256.0 * heightnumerator / nx);
 }
 
@@ -336,7 +354,16 @@ void TransformTile(
 		return;
 	}
 
-	*dispx = static_cast<std::int16_t>(centerx + (ny * scale_ / nx));
+	#if defined(__3DS__) || defined(_3DS)
+		const double projection_center =
+			n3ds_stereo_active ?
+			n3ds_stereo_projection_center :
+			static_cast<double>(centerx);
+	#else
+		const double projection_center = centerx;
+	#endif
+
+	*dispx = static_cast<std::int16_t>(projection_center + (ny * scale_ / nx));
 	*dispheight = static_cast<std::int16_t>(256.0 * heightnumerator / nx);
 }
 
@@ -1521,6 +1548,13 @@ void WallRefresh()
 	viewx = player->x - (focallength * viewcos);
 	viewy = player->y + (focallength * viewsin);
 
+	#if defined(__3DS__) || defined(_3DS)
+		// Move each eye sideways, perpendicular
+		// to Blake Stone's viewing direction.
+		viewx += n3ds_stereo_eye_offset * viewsin;
+		viewy += n3ds_stereo_eye_offset * viewcos;
+	#endif
+
 	focaltx = static_cast<int>(viewx);
 	focalty = static_cast<int>(viewy);
 
@@ -1573,17 +1607,110 @@ void ThreeDRefresh()
 		const auto frame_start = std::chrono::steady_clock::now();
 	#endif
 
-	spotvis = SpotVis{};
-
-	bufferofs = 0;
 
 	UpdateInfoAreaClock();
 	UpdateStatusBar();
 
-	// BBi
 	vid_is_3d = true;
 
-	bufferofs += screenofs;
+	#if defined(__3DS__) || defined(_3DS)
+		const float slider = osGet3DSliderState();
+
+		n3ds_stereo_active = slider > 0.01f;
+
+		const int eye_count =
+			n3ds_stereo_active ? 2 : 1;
+	#else
+		constexpr int eye_count = 1;
+	#endif
+
+
+	#if defined(__3DS__) || defined(_3DS)
+		// Original projection, shared by both eyes.
+		const int stereo_base_centerx = centerx;
+		const auto stereo_base_pixelangle = pixelangle;
+	#endif
+
+	for (int eye = 0; eye < eye_count; ++eye)
+	{
+		// Each eye must calculate its own visibility.
+		spotvis = SpotVis{};
+
+		bufferofs = screenofs;
+
+		#if defined(__3DS__) || defined(_3DS)
+			const double separation =
+				0.015 * static_cast<double>(slider);
+
+			n3ds_stereo_eye_offset =
+				n3ds_stereo_active ?
+				(eye == 0 ? -separation : separation) :
+				0.0;
+
+			// BStone already allocates two VGA image areas.
+			if (eye == 1)
+			{
+				bufferofs += vga_area;
+			}
+
+			// Horizontal offset of this eye's projection plane.
+			    // Distance of the zero-parallax plane.
+			constexpr double zero_parallax_distance = 0.3;
+
+			// Preserve fractional eye projection displacement.
+			const double lens_shift =
+				n3ds_stereo_eye_offset *
+				scale_ / zero_parallax_distance;
+
+			// Half-pixel correction for the original raycaster.
+			n3ds_stereo_projection_center =
+				static_cast<double>(stereo_base_centerx) +
+				0.5 + lens_shift;
+
+			// The original engine still uses an integer center
+			// for some legacy rendering operations.
+			centerx = stereo_base_centerx +
+				static_cast<int>(std::lround(lens_shift));
+
+			if (n3ds_stereo_active)
+			{
+				// Cache ray angles while the slider is stationary.
+				// Avoid recalculating atan() every frame.
+				static std::vector<int> cached_angles[2];
+				static double cached_centers[2]{};
+				static double cached_scales[2]{};
+
+				auto& angles = cached_angles[eye];
+
+				if (angles.size() !=
+						static_cast<std::size_t>(viewwidth) ||
+					cached_centers[eye] !=
+						n3ds_stereo_projection_center ||
+					cached_scales[eye] != scale_)
+				{
+					angles.resize(viewwidth);
+
+					for (int x = 0; x < viewwidth; ++x)
+					{
+						const double distance =
+							n3ds_stereo_projection_center -
+							static_cast<double>(x);
+
+						angles[x] = static_cast<int>(
+							std::atan(distance / scale_) *
+							radtoint);
+					}
+
+					cached_centers[eye] =
+						n3ds_stereo_projection_center;
+
+					cached_scales[eye] = scale_;
+				}
+
+				pixelangle = angles;
+			}
+		#endif
+
 
 	//
 	// follow the walls from there to the right, drawwing as we go
@@ -1649,17 +1776,38 @@ void ThreeDRefresh()
 		}
 	}
 
-	UpdateTravelTable();
+    	UpdateTravelTable();
 
-	//
-	// draw all the scaled images
-	//
-	DrawScaleds(); // draw scaled stuf
+    	// Render world sprites for this eye.
+		DrawScaleds();
+	}
 
-	// BBi
+	#if defined(__3DS__) || defined(_3DS)
+		n3ds_stereo_eye_offset = 0.0;
+
+		// Restore the normal perspective for all
+		// subsequent game rendering.
+		centerx = stereo_base_centerx;
+		pixelangle = stereo_base_pixelangle;
+	#endif
+
 	vid_is_3d = false;
 
-	DrawPlayerWeapon(); // draw player's hands
+	#if defined(__3DS__) || defined(_3DS)
+		// Weapon at zero parallax, identical in both eyes.
+		bufferofs = 0;
+		DrawPlayerWeapon();
+
+		if (n3ds_stereo_active)
+		{
+			bufferofs = vga_area;
+			DrawPlayerWeapon();
+		}
+
+		bufferofs = 0;
+	#else
+		DrawPlayerWeapon();
+	#endif
 
 //
 // show screen and time last cycle

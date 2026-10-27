@@ -1,3 +1,4 @@
+
 # BStone 3DS
 
 **A native dual-screen port of Blake Stone: Aliens of Gold for New Nintendo 3DS.**
@@ -21,6 +22,7 @@ The game is currently playable on New Nintendo 3DS hardware, with both screens a
 - Improved perspective scaling and screen utilization.
 - First-person weapons remain visible during gameplay.
 - Functional game menus and interface.
+- Native stereoscopic 3D rendering during gameplay, controlled by the 3D slider.
 
 ### Bottom Screen
 
@@ -113,8 +115,9 @@ This is an experimental alpha release, and some issues are still being addressed
 - Occasional audio glitches or interruptions may occur during gameplay.
 - The bottom-screen HUD and automap are functional but require further visual refinement.
 - Touchscreen controls are not yet available.
-- Some interface elements and menus still need further adaptation to the handheld format.
-- Native stereoscopic 3D is not yet implemented.
+- Some interface elements and menus still need further adaptation to the handheld format. Many menu options are inherited from the PC version of BStone and should not be changed until adapted to New Nintendo 3DS.
+- Native stereoscopic 3D is currently supported during gameplay only; menus and other non-gameplay screens remain in 2D.
+- Enabling stereoscopic 3D causes a noticeable performance drop, although the game remains playable.
 - Only *Aliens of Gold* has been tested; *Planet Strike* remains untested.
 
 Bug reports, testing results, and suggestions are welcome through [GitHub Issues](https://github.com/xXNukem/bstone-3ds/issues).
@@ -133,6 +136,7 @@ The long-term goal is to create a complete, polished Blake Stone experience spec
 - [x] Animated ECG health monitor.
 - [x] Real-time health, ammunition, weapon, score, lives, and access-card indicators.
 - [x] Permanently visible, real-time automap on the lower screen.
+- [x] Native stereoscopic 3D rendering during gameplay.
 
 ### Planned Improvements
 
@@ -143,7 +147,6 @@ The long-term goal is to create a complete, polished Blake Stone experience spec
 - [ ] Refine the bottom-screen HUD layout and visual presentation.
 - [ ] Add touchscreen interactions and controls.
 - [ ] Further improve first-person perspective and weapon presentation.
-- [ ] Implement native stereoscopic 3D rendering as a final major feature.
 
 Features and priorities may change as development progresses.
 
