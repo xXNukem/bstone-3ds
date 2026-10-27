@@ -94,7 +94,7 @@ void DrawSpans(
 		shadingtable = lightsource + (i * 256);
 	}
 
-	const auto prestep = (viewwidth / 2) - x1;
+	const auto prestep = (centerx + 1) - x1;
 
 	mr_xfrac = startxfrac - (mr_xstep * prestep);
 	mr_yfrac = startyfrac - (mr_ystep * prestep);
