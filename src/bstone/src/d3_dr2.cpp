@@ -73,405 +73,614 @@ double get_fractional_1(double value) noexcept
 
 } // namespace
 
+
+
 void AsmRefresh()
 {
-	enum class State
-	{
-		vertcheck,
-		vertentry,
-		horizcheck,
-		horizentry,
-		nextpix,
-	};
+#if defined(__3DS__) || defined(_3DS)
 
-	vid_hw_clear_wall_render_list();
-	vid_hw_clear_pushwall_render_list();
-	vid_hw_clear_door_render_list();
+    // ARM11 optimized coordinate calculations.
 
-	for (pixx = 0; pixx < viewwidth; ++pixx)
-	{
-		auto angle = midangle + pixelangle[pixx];
+    const auto get_integral = [](double value) noexcept -> double
+    {
+        return static_cast<double>(
+            static_cast<int>(value));
+    };
 
-		while (angle < 0)
-		{
-			angle += DEG360;
-		}
+    const auto get_fractional = [](double value) noexcept -> double
+    {
+        return value - static_cast<double>(
+            static_cast<int>(value));
+    };
 
-		while (angle >= DEG360)
-		{
-			angle -= DEG360;
-		}
+    const auto get_integral_1 = [](double value) noexcept -> double
+    {
+        const int integer = static_cast<int>(value);
 
-		auto xpartial = 0.0;
-		auto ypartial = 0.0;
+        return static_cast<double>(
+            integer - (value < static_cast<double>(integer)));
+    };
 
-		if (angle >= DEG270)
-		{
-			xtilestep = 1;
-			ytilestep = 1;
+    const auto get_fractional_1 = [](double value) noexcept -> double
+    {
+        const double shifted = 1.0 + value;
 
-			xstep = finetangent[angle - DEG270];
-			ystep = finetangent[DEG360 - 1 - angle];
+        return shifted - static_cast<double>(
+            static_cast<int>(shifted));
+    };
 
-			xpartial = xpartialup;
-			ypartial = ypartialup;
-		}
-		else if (angle >= DEG180)
-		{
-			xtilestep = -1;
-			ytilestep = 1;
+#endif
 
-			xstep = -finetangent[DEG270 - 1 - angle];
-			ystep = finetangent[angle - DEG180];
+    vid_hw_clear_wall_render_list();
+    vid_hw_clear_pushwall_render_list();
+    vid_hw_clear_door_render_list();
 
-			xpartial = xpartialdown;
-			ypartial = ypartialup;
-		}
-		else if (angle >= DEG90)
-		{
-			xtilestep = -1;
-			ytilestep = -1;
+    for (pixx = 0; pixx < viewwidth; ++pixx)
+    {
+        auto angle = midangle + pixelangle[pixx];
 
-			xstep = -finetangent[angle - DEG90];
-			ystep = -finetangent[DEG180 - 1 - angle];
+        while (angle < 0)
+        {
+            angle += DEG360;
+        }
 
-			xpartial = xpartialdown;
-			ypartial = ypartialdown;
-		}
-		else
-		{
-			xtilestep = 1;
-			ytilestep = -1;
+        while (angle >= DEG360)
+        {
+            angle -= DEG360;
+        }
 
-			xstep = finetangent[DEG90 - 1 - angle];
-			ystep = -finetangent[angle];
+        auto xpartial = 0.0;
+        auto ypartial = 0.0;
 
-			xpartial = xpartialup;
-			ypartial = ypartialdown;
-		}
+        if (angle >= DEG270)
+        {
+            xtilestep = 1;
+            ytilestep = 1;
 
-		//
-		// initialise variables for intersection testing
-		//
+            xstep = finetangent[angle - DEG270];
+            ystep = finetangent[DEG360 - 1 - angle];
 
-		yintercept = viewy + ystep * xpartial;
-		auto yint_h = static_cast<int>(yintercept); // high part of temporary yintercept
+            xpartial = xpartialup;
+            ypartial = ypartialup;
+        }
+        else if (angle >= DEG180)
+        {
+            xtilestep = -1;
+            ytilestep = 1;
 
-		xtile = focaltx + xtilestep;
-		auto xs_x = xtile; // temporary xspot (x)
-		auto xs_y = yint_h; // temporary xspot (y)
+            xstep = -finetangent[DEG270 - 1 - angle];
+            ystep = finetangent[angle - DEG180];
 
-		const auto xint_1 = viewx + xstep * ypartial;
-		auto xint_h = static_cast<int>(get_integral_1(xint_1)); // high part of temporary xintercept
+            xpartial = xpartialdown;
+            ypartial = ypartialup;
+        }
+        else if (angle >= DEG90)
+        {
+            xtilestep = -1;
+            ytilestep = -1;
 
-		xintercept = get_fractional_1(xint_1);
+            xstep = -finetangent[angle - DEG90];
+            ystep = -finetangent[DEG180 - 1 - angle];
 
-		auto yt = focalty + ytilestep; // temporary ytile
-		auto ys_x = xint_h; // temporary yspot (x)
-		auto ys_y = yt; // temporary yspot (y)
+            xpartial = xpartialdown;
+            ypartial = ypartialdown;
+        }
+        else
+        {
+            xtilestep = 1;
+            ytilestep = -1;
 
-		auto xt = xtile; // temporary xtile
+            xstep = finetangent[DEG90 - 1 - angle];
+            ystep = -finetangent[angle];
 
-		// trace along this angle until we hit a wall
-		//
-		// CORE LOOP!
+            xpartial = xpartialup;
+            ypartial = ypartialdown;
+        }
 
-		for (auto state = State::vertcheck; state != State::nextpix; )
-		{
-			switch (state)
-			{
-				// check intersections with vertical walls
+        // Initialize ray intersections.
 
-				case State::vertcheck:
-					if ((ytilestep < 0 && yint_h <= yt) || (ytilestep > 0 && yint_h >= yt))
-					{
-						state = State::horizentry;
-					}
-					else
-					{
-						state = State::vertentry;
-					}
+        yintercept = viewy + ystep * xpartial;
+        auto yint_h = static_cast<int>(yintercept);
 
-					break;
+        xtile = focaltx + xtilestep;
+        auto xs_x = xtile;
+        auto xs_y = yint_h;
 
-				case State::vertentry:
-					if (tilemap[xs_x][xs_y] != 0)
-					{
-						tilehit = tilemap[xs_x][xs_y];
+        const auto xint_1 = viewx + xstep * ypartial;
+        auto xint_h = static_cast<int>(get_integral_1(xint_1));
 
-						if ((tilehit & 0x80) != 0)
-						{
-							// hit a special vertical wall, so find which coordinate a
-							// door would be intersected at, and check to see if the
-							// door is open past that point
+        xintercept = get_fractional_1(xint_1);
 
-							xtile = xt;
-							yintercept = yint_h + get_fractional(yintercept);
+        auto yt = focalty + ytilestep;
+        auto ys_x = xint_h;
+        auto ys_y = yt;
 
-							if ((tilehit & 0x40) != 0)
-							{
-								// hit a sliding vertical wall
+        auto xt = xtile;
 
-								const auto intercept = ystep * pwallpos;
-								const auto yint = get_fractional(intercept) + get_fractional(yintercept);
-								const auto intercept_l = get_fractional_1(yint); // low part of intercept
-								// high part of intercept
-								const auto intercept_h = yint_h + static_cast<int>(intercept + get_integral_1(yint));
 
-								if (yint_h == intercept_h)
-								{
-									// draw the pushable wall at the new height
+        #if defined(__3DS__) || defined(_3DS)
 
-									yintercept = intercept_h + intercept_l;
-									xintercept = xt;
+                // New 3DS: 16.16 fixed-point DDA fast path.
+                // Handle empty tiles and ordinary walls using
+                // integer arithmetic.
+                //
+                // Doors, pushwalls and numerically sensitive
+                // intersections use the original traversal below.
 
-									HitVertPWall();
+                constexpr std::int32_t fixed_one = 65536;
+                constexpr int fixed_shift = 16;
 
-									state = State::nextpix;
-									break;
-								}
-							}
-							else
-							{
-								const auto intercept = yintercept + 0.5 * ystep;
-								const auto intercept_l = get_fractional(intercept); // low part of intercept
-								const auto intercept_h = static_cast<int>(intercept); // high part of intercept
+                bool fast_rendered = false;
 
-								if (static_cast<int>(yintercept) == intercept_h)
-								{
-									// the trace hit the door plane at pixel position,
-									// see if the door is closed that much
-									//
-									// draw the door
+                if (yintercept >= 0.0 &&
+                    xint_1 >= 0.0 &&
+                    std::abs(xstep) < 1024.0 &&
+                    std::abs(ystep) < 1024.0)
+                {
+                    auto fast_x = static_cast<std::int32_t>(
+                        xint_1 * fixed_one);
 
-									const auto doorpos = tilehit & 0x7F;
-									auto skip_draw = false;
+                    auto fast_y = static_cast<std::int32_t>(
+                        yintercept * fixed_one);
+
+                    const auto fast_xstep =
+                        static_cast<std::int32_t>(
+                            xstep * fixed_one);
+
+                    const auto fast_ystep =
+                        static_cast<std::int32_t>(
+                            ystep * fixed_one);
+
+                    auto fast_xt = xt;
+                    auto fast_yt = yt;
+
+                    bool fast_previous_vertical = true;
+
+                    int fast_steps = 0;
+
+                    for (;;)
+                    {
+                        if (fast_x < 0 || fast_y < 0)
+                        {
+                            break;
+                        }
+
+                        const int fast_xint_h =
+                            fast_x >> fixed_shift;
+
+                        const int fast_yint_h =
+                            fast_y >> fixed_shift;
+
+                        // Quantization guard.
+                        // Falling back near integer boundaries
+                        // avoids changing corner intersections.
+
+                        const int margin = 2 * (fast_steps + 2);
+
+                        const int xfrac = fast_x & 0xFFFF;
+                        const int yfrac = fast_y & 0xFFFF;
+
+                        if (xfrac <= margin ||
+                            xfrac >= fixed_one - margin ||
+                            yfrac <= margin ||
+                            yfrac >= fixed_one - margin)
+                        {
+                            break;
+                        }
+
+                        const bool use_vertical =
+                            fast_previous_vertical
+                            ? !(
+                                (ytilestep < 0 &&
+                                    fast_yint_h <= fast_yt) ||
+                                (ytilestep > 0 &&
+                                    fast_yint_h >= fast_yt))
+                            : (
+                                (xtilestep > 0 &&
+                                    fast_xint_h >= fast_xt) ||
+                                (xtilestep < 0 &&
+                                    fast_xint_h <= fast_xt));
+
+                        fast_previous_vertical = use_vertical;
+
+                        if (use_vertical)
+                        {
+                            if (fast_xt < 0 ||
+                                fast_xt >= MAPSIZE ||
+                                fast_yint_h < 0 ||
+                                fast_yint_h >= MAPSIZE)
+                            {
+                                break;
+                            }
+
+                            const int tile =
+                                tilemap[fast_xt][fast_yint_h];
+
+                            if (tile != 0)
+                            {
+                                // Complex geometry uses the
+                                // original double-precision path.
+                                if ((tile & 0x80) != 0)
+                                {
+                                    break;
+                                }
+
+                                tilehit = tile;
+
+                                xtile = fast_xt;
+                                ytile = fast_yint_h;
+
+                                xintercept = fast_xt;
+
+                                yintercept =
+                                    static_cast<double>(fast_y) /
+                                    fixed_one;
+
+                                HitVertWall();
+
+                                fast_rendered = true;
+                                break;
+                            }
+
+                            spotvis[fast_xt][fast_yint_h] = 1;
+
+                            fast_xt += xtilestep;
+                            fast_y += fast_ystep;
+                        }
+                        else
+                        {
+                            if (fast_xint_h < 0 ||
+                                fast_xint_h >= MAPSIZE ||
+                                fast_yt < 0 ||
+                                fast_yt >= MAPSIZE)
+                            {
+                                break;
+                            }
+
+                            const int tile =
+                                tilemap[fast_xint_h][fast_yt];
+
+                            if (tile != 0)
+                            {
+                                if ((tile & 0x80) != 0)
+                                {
+                                    break;
+                                }
+
+                                tilehit = tile;
+
+                                xtile = fast_xint_h;
+                                ytile = fast_yt;
+
+                                xintercept =
+                                    static_cast<double>(fast_x) /
+                                    fixed_one;
+
+                                yintercept = fast_yt;
+
+                                HitHorizWall();
+
+                                fast_rendered = true;
+                                break;
+                            }
+
+                            spotvis[fast_xint_h][fast_yt] = 1;
+
+                            fast_yt += ytilestep;
+                            fast_x += fast_xstep;
+                        }
+
+                        ++fast_steps;
+                    }
+                }
+
+                // An ordinary wall was rendered using the
+                // fixed-point path. Continue with the next ray.
+                if (fast_rendered)
+                {
+                    continue;
+                }
+
+                // Otherwise, the original DDA below starts
+                // from its untouched initial coordinates.
+
+        #endif
+
+
+        // Direct DDA traversal.
+        // Preserve original tie-breaking depending on
+        // whether the previous step was vertical or horizontal.
+
+        bool previous_was_vertical = true;
+
+        for (;;)
+        {
+            const bool use_vertical = previous_was_vertical
+                ? !((ytilestep < 0 && yint_h <= yt) ||
+                    (ytilestep > 0 && yint_h >= yt))
+                : ((xtilestep > 0 && xint_h >= xt) ||
+                    (xtilestep < 0 && xint_h <= xt));
+
+            previous_was_vertical = use_vertical;
+
+            if (use_vertical)
+            {
+                if (tilemap[xs_x][xs_y] != 0)
+                {
+                    tilehit = tilemap[xs_x][xs_y];
+
+                    if ((tilehit & 0x80) != 0)
+                    {
+                        xtile = xt;
+                        yintercept = yint_h + get_fractional(yintercept);
+
+                        if ((tilehit & 0x40) != 0)
+                        {
+                            // Vertical pushwall.
+
+                            const auto intercept = ystep * pwallpos;
+                            const auto yint =
+                                get_fractional(intercept) +
+                                get_fractional(yintercept);
+
+                            const auto intercept_l =
+                                get_fractional_1(yint);
+
+                            const auto intercept_h =
+                                yint_h +
+                                static_cast<int>(
+                                    intercept + get_integral_1(yint));
+
+                            if (yint_h == intercept_h)
+                            {
+                                yintercept = intercept_h + intercept_l;
+                                xintercept = xt;
+
+                                HitVertPWall();
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            // Vertical door.
+
+                            const auto intercept =
+                                yintercept + 0.5 * ystep;
+
+                            const auto intercept_l =
+                                get_fractional(intercept);
+
+                            const auto intercept_h =
+                                static_cast<int>(intercept);
+
+                            if (static_cast<int>(yintercept) ==
+                                intercept_h)
+                            {
+                                const auto doorpos = tilehit & 0x7F;
+                                auto skip_draw = false;
 
 #ifndef W3D
-									if (intercept_l < 0.5)
-									{
-										if (2 * intercept_l > 1 - doorposition[doorpos])
-										{
-											skip_draw = true;
-										}
-									}
-									else
-									{
-										if (2 * intercept_l < 1 + doorposition[doorpos])
-										{
-											skip_draw = true;
-										}
-									}
+                                if (intercept_l < 0.5)
+                                {
+                                    if (2 * intercept_l >
+                                        1 - doorposition[doorpos])
+                                    {
+                                        skip_draw = true;
+                                    }
+                                }
+                                else
+                                {
+                                    if (2 * intercept_l <
+                                        1 + doorposition[doorpos])
+                                    {
+                                        skip_draw = true;
+                                    }
+                                }
 #else
-									if (intercept_l < doorposition[doorpos])
-									{
-										skip_draw = true;
-									}
-#endif // W3D
+                                if (intercept_l < doorposition[doorpos])
+                                {
+                                    skip_draw = true;
+                                }
+#endif
 
-									if (!skip_draw)
-									{
-										//
-										// draw the trek door
-										//
+                                if (!skip_draw)
+                                {
+                                    yintercept =
+                                        intercept_l +
+                                        get_integral(yintercept);
 
-										yintercept = intercept_l + get_integral(yintercept);
-										xintercept = xtile + 0.5;
+                                    xintercept = xtile + 0.5;
 
-										HitVertDoor();
+                                    HitVertDoor();
+                                    break;
+                                }
+                            }
+                        }
 
-										state = State::nextpix;
-										break;
-									}
-								}
-							}
+                        // Continue through an open door.
 
-							// midpoint is outside tile,
-							// so it hit the side of the wall before a door
+                        xt = xtile;
+                        yint_h = static_cast<int>(yintercept);
+                    }
+                    else
+                    {
+                        // Ordinary vertical wall.
 
-							xt = xtile;
-							yint_h = static_cast<int>(yintercept);
-						}
-						else
-						{
-							xintercept = xt;
-							xtile = xt;
+                        xintercept = xt;
+                        xtile = xt;
 
-							yintercept = yint_h + get_fractional(yintercept);
-							ytile = yint_h;
+                        yintercept =
+                            yint_h + get_fractional(yintercept);
 
-							HitVertWall();
+                        ytile = yint_h;
 
-							state = State::nextpix;
-							break;
-						}
-					}
+                        HitVertWall();
+                        break;
+                    }
+                }
 
-					spotvis[xs_x][xs_y] = 1;
+                spotvis[xs_x][xs_y] = 1;
 
-					xt += xtilestep;
+                xt += xtilestep;
 
-					{
-						const auto yint_1 = get_fractional(yintercept) + get_fractional(ystep);
-						yintercept = get_integral(yintercept) + get_fractional_1(yint_1);
+                {
+                    const auto yint_1 =
+                        get_fractional(yintercept) +
+                        get_fractional(ystep);
 
-						yint_h += static_cast<int>(ystep + get_integral_1(yint_1));
-					}
+                    yintercept =
+                        get_integral(yintercept) +
+                        get_fractional_1(yint_1);
 
-					xs_x = xt;
-					xs_y = yint_h;
+                    yint_h += static_cast<int>(
+                        ystep + get_integral_1(yint_1));
+                }
 
-					state = State::vertcheck;
-					break;
+                xs_x = xt;
+                xs_y = yint_h;
 
-				// check intersections with horizontal walls
+                continue;
+            }
 
-				case State::horizcheck:
-					if ((xtilestep > 0 && xint_h >= xt) || (xtilestep < 0 && xint_h <= xt))
-					{
-						state = State::vertentry;
-					}
-					else
-					{
-						state = State::horizentry;
-					}
+            // Horizontal intersection.
 
-					break;
+            if (tilemap[ys_x][ys_y] != 0)
+            {
+                tilehit = tilemap[ys_x][ys_y];
 
-				case State::horizentry:
-					if (tilemap[ys_x][ys_y] != 0)
-					{
-						tilehit = tilemap[ys_x][ys_y];
+                if ((tilehit & 0x80) != 0)
+                {
+                    xtile = xt;
+                    yintercept =
+                        yint_h + get_fractional(yintercept);
 
-						if ((tilehit & 0x80) != 0)
-						{
-							// hit a special horizontal wall, so find which coordinate a
-							// door would be intersected at, and check to see if the
-							// door is open past that point
+                    if ((tilehit & 0x40) != 0)
+                    {
+                        // Horizontal pushwall.
 
-							xtile = xt;
+                        const auto intercept = xstep * pwallpos;
+                        const auto xint =
+                            get_fractional(intercept) +
+                            get_fractional(xintercept);
 
-							yintercept = yint_h + get_fractional(yintercept);
+                        const auto intercept_l =
+                            get_fractional_1(xint);
 
-							if ((tilehit & 0x40) != 0)
-							{
-								// hit a sliding horizontal wall
+                        const auto intercept_h =
+                            xint_h +
+                            static_cast<int>(
+                                intercept + get_integral_1(xint));
 
-								const auto intercept = xstep * pwallpos;
-								const auto xint = get_fractional(intercept) + get_fractional(xintercept);
-								const auto intercept_l = get_fractional_1(xint); // low part of intercept
-								// high part of intercept
-								const auto intercept_h = xint_h + static_cast<int>(intercept + get_integral_1(xint));
+                        if (xint_h == intercept_h)
+                        {
+                            xintercept = intercept_h + intercept_l;
+                            yintercept = yt;
 
-								if (xint_h == intercept_h)
-								{
-									// draw the pushable wall at the new height
+                            HitHorizPWall();
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // Horizontal door.
 
-									xintercept = intercept_h + intercept_l;
-									yintercept = yt;
+                        const auto intercept = 0.5 * xstep;
+                        const auto xint =
+                            get_fractional(intercept) +
+                            get_fractional(xintercept);
 
-									HitHorizPWall();
+                        const auto intercept_l =
+                            get_fractional_1(xint);
 
-									state = State::nextpix;
-									break;
-								}
-							}
-							else
-							{
-								const auto intercept = 0.5 * xstep;
-								const auto xint = get_fractional(intercept) + get_fractional(xintercept);
-								const auto intercept_l = get_fractional_1(xint); // low part of intercept
-								// high part of intercept
-								const auto intercept_h = xint_h + static_cast<int>(intercept + get_integral_1(xint));
+                        const auto intercept_h =
+                            xint_h +
+                            static_cast<int>(
+                                intercept + get_integral_1(xint));
 
-								if (xint_h == intercept_h)
-								{
-									// the trace hit the door plane at pixel position,
-									// see if the door is closed that much
-									//
-									// draw the door
-
-									const auto doorpos = tilehit & 0x7F;
-									auto skip_draw = false;
+                        if (xint_h == intercept_h)
+                        {
+                            const auto doorpos = tilehit & 0x7F;
+                            auto skip_draw = false;
 
 #ifndef W3D
-									if (intercept_l < 0.5)
-									{
-										if (2 * intercept_l > 1 - doorposition[doorpos])
-										{
-											skip_draw = true;
-										}
-									}
-									else
-									{
-										if (2 * intercept_l < 1 + doorposition[doorpos])
-										{
-											skip_draw = true;
-										}
-									}
+                            if (intercept_l < 0.5)
+                            {
+                                if (2 * intercept_l >
+                                    1 - doorposition[doorpos])
+                                {
+                                    skip_draw = true;
+                                }
+                            }
+                            else
+                            {
+                                if (2 * intercept_l <
+                                    1 + doorposition[doorpos])
+                                {
+                                    skip_draw = true;
+                                }
+                            }
 #else
-									if (intercept_l < doorposition[doorpos])
-									{
-										skip_draw = true;
-									}
-#endif // W3D
+                            if (intercept_l < doorposition[doorpos])
+                            {
+                                skip_draw = true;
+                            }
+#endif
 
-									if (!skip_draw)
-									{
-										// draw the trek door
+                            if (!skip_draw)
+                            {
+                                xintercept =
+                                    xint_h + intercept_l;
 
-										xintercept = xint_h + intercept_l;
-										yintercept = yt + 0.5;
+                                yintercept = yt + 0.5;
 
-										HitHorizDoor();
+                                HitHorizDoor();
+                                break;
+                            }
+                        }
+                    }
 
-										state = State::nextpix;
-										break;
-									}
-								}
-							}
+                    // Continue through an open door.
 
-							// midpoint is outside tile,
-							// so it hit the side of the wall before a door
+                    xt = xtile;
+                    yint_h = static_cast<int>(yintercept);
+                }
+                else
+                {
+                    // Ordinary horizontal wall.
 
-							xt = xtile;
-							yint_h = static_cast<int>(yintercept);
-						}
-						else
-						{
-							xintercept = xint_h + get_fractional(xintercept);
-							xtile = xint_h;
+                    xintercept =
+                        xint_h + get_fractional(xintercept);
 
-							yintercept = yt;
-							ytile = yt;
+                    xtile = xint_h;
 
-							HitHorizWall();
+                    yintercept = yt;
+                    ytile = yt;
 
-							state = State::nextpix;
-							break;
-						}
-					}
+                    HitHorizWall();
+                    break;
+                }
+            }
 
-					spotvis[ys_x][ys_y] = 1;
+            spotvis[ys_x][ys_y] = 1;
 
-					yt += ytilestep;
+            yt += ytilestep;
 
-					{
-						const auto xint_2 = get_fractional(xintercept) + get_fractional(xstep);
-						xintercept = get_integral(xintercept) + get_fractional_1(xint_2);
+            {
+                const auto xint_2 =
+                    get_fractional(xintercept) +
+                    get_fractional(xstep);
 
-						xint_h += static_cast<int>(xstep + get_integral_1(xint_2));
-					}
+                xintercept =
+                    get_integral(xintercept) +
+                    get_fractional_1(xint_2);
 
-					ys_x = xint_h;
-					ys_y = yt;
+                xint_h += static_cast<int>(
+                    xstep + get_integral_1(xint_2));
+            }
 
-					state = State::horizcheck;
-					break;
-
-				case State::nextpix:
-					break;
-			}
-		}
-	}
+            ys_x = xint_h;
+            ys_y = yt;
+        }
+    }
 }
+

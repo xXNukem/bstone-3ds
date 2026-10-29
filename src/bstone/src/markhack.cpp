@@ -30,15 +30,91 @@ enum DrawMode
 }; // DrawMode
 
 
-static void generic_draw_post(
-	DrawMode draw_mode)
-{
-	if (postheight <= 0.0)
-	{
-		return;
-	}
 
-	int y = posty;
+static void generic_draw_post(DrawMode draw_mode)
+{
+    if (postheight <= 0.0)
+    {
+        return;
+    }
+
+#if defined(__3DS__) || defined(_3DS)
+
+    // New 3DS optimized wall-column renderer.
+    // Use fixed-point arithmetic instead of
+    // floating-point calculations per pixel.
+
+    if (vid_is_3d)
+    {
+        const int half_height = viewheight / 2;
+
+        const int count = static_cast<int>(
+            std::min(
+                postheight,
+                static_cast<double>(half_height)));
+
+        if (count <= 0)
+        {
+            return;
+        }
+
+        // 16.16 fixed-point texture coordinates.
+        constexpr int fixed_shift = 16;
+        constexpr double fixed_scale = 65536.0;
+
+        const auto step = static_cast<std::uint32_t>(
+            (32.0 / postheight) * fixed_scale);
+
+        std::uint32_t position = step / 2;
+
+        // Direct pointers to both halves of
+        // the wall column in the VGA buffer.
+        auto* upper = vga_memory +
+            bufferofs +
+            (half_height - 1) * vga_width +
+            postx;
+
+        auto* lower = upper + vga_width;
+
+        const bool shaded =
+            draw_mode == DRAW_LIGHTED;
+
+        for (int h = 0; h < count; ++h)
+        {
+            const int texel =
+                static_cast<int>(
+                    position >> fixed_shift);
+
+            const std::uint8_t top_color =
+                postsource[31 - texel];
+
+            const std::uint8_t bottom_color =
+                postsource[32 + texel];
+
+            if (shaded)
+            {
+                *upper = shadingtable[top_color];
+                *lower = shadingtable[bottom_color];
+            }
+            else
+            {
+                *upper = top_color;
+                *lower = bottom_color;
+            }
+
+            upper -= vga_width;
+            lower += vga_width;
+
+            position += step;
+        }
+
+        return;
+    }
+
+#endif
+
+    int y = posty;
+
 
 	auto cur_step = 32.0 / postheight;
 

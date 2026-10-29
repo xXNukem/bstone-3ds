@@ -16,6 +16,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 extern bstone::SpriteCache vid_sprite_cache;
 
+#if defined(__3DS__) || defined(_3DS)
+extern bool n3ds_stereo_active;
+#endif
 
 enum class ShapeDrawMode
 {
@@ -222,6 +225,103 @@ void generic_scale_shape(
 
 		shading = lightsource + (i * 256);
 	}
+
+
+	#if defined(__3DS__) || defined(_3DS)
+
+		// New 3DS optimized sprite renderer.
+		// Fixed-point texture coordinates and direct VGA writes.
+
+		constexpr double fixed_scale = 65536.0;
+		constexpr int fixed_shift = 16;
+
+		const auto fixed_delta =
+			static_cast<std::uint32_t>(
+				tx_delta * fixed_scale);
+
+		auto fixed_column =
+			static_cast<std::uint32_t>(
+				tx_column * fixed_scale);
+
+		const auto fixed_row_begin =
+			static_cast<std::uint32_t>(
+				tx_row_begin * fixed_scale);
+
+		const bool is_shaded =
+			draw_mode == ShapeDrawMode::shaded;
+
+		for (int x = x1; x < x2; ++x)
+		{
+			if (!is_player_weapon &&
+				wallheight[x] > static_cast<double>(ref_height))
+			{
+				fixed_column += fixed_delta;
+				continue;
+			}
+
+			const int column_index =
+				static_cast<int>(fixed_column >> fixed_shift);
+
+			const auto column =
+				sprite_ptr->get_column(column_index);
+
+			auto fixed_row = fixed_row_begin;
+
+			auto* destination =
+				vga_memory +
+				bufferofs +
+				y1 * vga_width +
+				x;
+
+			for (int y = y1; y < y2; ++y)
+			{
+				const int row_index =
+					static_cast<int>(fixed_row >> fixed_shift);
+
+				const auto sprite_color = column[row_index];
+
+				if (sprite_color >= 0)
+				{
+					auto color_index =
+						static_cast<std::uint8_t>(sprite_color);
+
+					if (is_shaded)
+					{
+	#if CLOAKED_SHAPES
+						if (cloaked_shape)
+						{
+							color_index =
+								shading[0x1000 | *destination];
+						}
+						else
+	#endif
+						{
+							color_index = shading[color_index];
+						}
+					}
+
+					
+						*destination = color_index;
+
+						// The player's weapon has zero stereo parallax.
+						// Write the same visible pixel to both eyes.
+						if (is_player_weapon && n3ds_stereo_active && bufferofs == 0)
+						{
+							destination[vga_area] = color_index;
+						}
+
+				}
+
+				destination += vga_width;
+				fixed_row += fixed_delta;
+			}
+
+			fixed_column += fixed_delta;
+		}
+
+		return;
+
+	#endif
 
 
 	for (int x = x1; x < x2; ++x)

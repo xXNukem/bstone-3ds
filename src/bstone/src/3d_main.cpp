@@ -51,9 +51,12 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_text_reader.h"
 #include "bstone_text_writer.h"
 #include "bstone_version.h"
+
 #if defined(__3DS__) || defined(_3DS)
+#include <3ds.h>
 #include "bstone_3ds_intro.h"
 #endif
+
 #ifdef __vita__
 #include <vitasdk.h>
 int _newlib_heap_size_user = 192 * 1024 * 1024;
@@ -9961,11 +9964,18 @@ void DrawCreditsPage()
 	TP_Presenter(&pi);
 }
 
+
 int main(
-	int argc,
-	char* argv[])
+    int argc,
+    char* argv[])
 {
+#if defined(__3DS__) || defined(_3DS)
+    // Enable New 3DS higher CPU clock and L2 cache.
+    osSetSpeedupEnable(true);
+#endif
+
 #ifdef __vita__
+
 	scePowerSetArmClockFrequency(444);
 	scePowerSetBusClockFrequency(222);
 	scePowerSetGpuClockFrequency(222);
@@ -10967,18 +10977,32 @@ dirtype operator++(
 }
 
 
+
 double get_integral(
-	const double value) noexcept
+    const double value) noexcept
 {
-	return std::trunc(value);
+#if defined(__3DS__) || defined(_3DS)
+    // ARM11: integer conversion truncates towards zero.
+    return static_cast<double>(
+        static_cast<int>(value));
+#else
+    return std::trunc(value);
+#endif
 }
 
 double get_fractional(
-	const double value) noexcept
+    const double value) noexcept
 {
-	double integral;
-	return std::modf(value, &integral);
+#if defined(__3DS__) || defined(_3DS)
+    // Avoid std::modf() for game-world coordinates.
+    return value - static_cast<double>(
+        static_cast<int>(value));
+#else
+    double integral;
+    return std::modf(value, &integral);
+#endif
 }
+
 
 namespace {
 

@@ -24,7 +24,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_sw_video.h"
 #include "bstone_video.h"
 #include "bstone_video_cvars.h"
-
+#include <atomic>
+#include <array>
 #include "bstone_r3r_utils.h"
 
 #include "bstone_sys_video_mgr.h"
@@ -43,6 +44,158 @@ extern bool n3ds_stereo_active;
 namespace bstone {
 
 namespace {
+
+
+#if defined(__3DS__) || defined(_3DS)
+
+// Independent conversion work for each stereoscopic eye.
+// The worker only writes CPU-accessible texture memory.
+// All Citro3D operations remain on the main thread.
+struct N3dsScreenConversion
+{
+    u16* destination = nullptr;
+    const u8* source = nullptr;
+    const u16* palette = nullptr;
+    const u32* swizzle_x = nullptr;
+    const u32* swizzle_y = nullptr;
+    int source_base = 0;
+    int source_stride = 0;
+    int width = 0;
+    int height = 0;
+};
+
+void n3ds_convert_screen(void* context)
+{
+    const auto& job = *static_cast<const N3dsScreenConversion*>(context);
+
+    for (int y = 0; y < job.height; ++y)
+    {
+        const auto* source_row = job.source +
+            job.source_base + y * job.source_stride;
+        auto* destination_row = job.destination + job.swizzle_y[y];
+
+        for (int x = 0; x < job.width; ++x)
+        {
+            destination_row[job.swizzle_x[x]] =
+                job.palette[source_row[x]];
+        }
+    }
+}
+
+class N3dsEyeWorker
+{
+public:
+    struct Job
+    {
+        void (*callback)(void*) = nullptr;
+        void* context = nullptr;
+    };
+
+    void initialize()
+    {
+        if (attempted_)
+            return;
+
+        attempted_ = true;
+
+        LightEvent_Init(&start_event_, RESET_ONESHOT);
+        LightEvent_Init(&finish_event_, RESET_ONESHOT);
+
+        thread_ = threadCreate(
+            &N3dsEyeWorker::thread_main,
+            this,
+            0x4000,
+            0x30,
+            2,
+            false
+        );
+    }
+
+    bool available() const noexcept
+    {
+        return thread_ != nullptr;
+    }
+
+    void submit(Job& job)
+    {
+        pending_job_.store(
+            &job,
+            std::memory_order_release
+        );
+
+        LightEvent_Signal(&start_event_);
+    }
+
+    void wait()
+    {
+        LightEvent_Wait(&finish_event_);
+
+        pending_job_.store(
+            nullptr,
+            std::memory_order_release
+        );
+    }
+
+    void shutdown()
+    {
+        if (!thread_)
+            return;
+
+        stopping_.store(
+            true,
+            std::memory_order_release
+        );
+
+        LightEvent_Signal(&start_event_);
+
+        threadJoin(thread_, U64_MAX);
+        threadFree(thread_);
+
+        thread_ = nullptr;
+    }
+
+private:
+    static void thread_main(void* argument)
+    {
+        auto* worker =
+            static_cast<N3dsEyeWorker*>(argument);
+
+        for (;;)
+        {
+            LightEvent_Wait(&worker->start_event_);
+
+            if (worker->stopping_.load(
+                std::memory_order_acquire))
+            {
+                break;
+            }
+
+            auto* job = worker->pending_job_.load(
+                std::memory_order_acquire
+            );
+
+            if (job && job->callback)
+            {
+                job->callback(job->context);
+            }
+
+            LightEvent_Signal(&worker->finish_event_);
+        }
+    }
+
+    Thread thread_ = nullptr;
+
+    LightEvent start_event_{};
+    LightEvent finish_event_{};
+
+    std::atomic<Job*> pending_job_{nullptr};
+    std::atomic<bool> stopping_{false};
+
+    bool attempted_ = false;
+};
+
+#endif
+
 
 class SwVideo final : public Video
 {
@@ -174,11 +327,15 @@ private:
 	std::array<sys::Rectangle, 4> filler_hud_rects_{};
 	sys::Rectangle screen_dst_rect_{};
 	sys::Color filler_color_{};
+
 	#if defined(__3DS__) || defined(_3DS)
 		C3D_RenderTarget* gpu_top_{};
 		C3D_RenderTarget* gpu_top_right_{};
 		C3D_RenderTarget* gpu_bottom_{};
+
+		N3dsEyeWorker eye_worker_{};
 	#endif
+
 
 
 	// HW
@@ -209,10 +366,16 @@ try
 	initialize_video();
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
+
 SwVideo::~SwVideo()
 {
-	uninitialize_vga_buffer();
+#if defined(__3DS__) || defined(_3DS)
+    eye_worker_.shutdown();
+#endif
+
+    uninitialize_vga_buffer();
 }
+
 
 void* SwVideo::operator new(std::size_t size)
 try {
@@ -289,6 +452,38 @@ try {
 		constexpr int texture_width = 512;
 		constexpr int texture_height = 256;
 
+
+        // Cached Morton/swizzled texture offsets.
+        // Calculated only once instead of once per pixel.
+
+        static u32 swizzle_x[texture_width]{};
+        static u32 swizzle_y[texture_height]{};
+        static bool swizzle_ready = false;
+
+        if (!swizzle_ready)
+        {
+            for (int x = 0; x < texture_width; ++x)
+            {
+                swizzle_x[x] =
+                    ((x >> 3) * 64) |
+                    (x & 1) |
+                    ((x & 2) << 1) |
+                    ((x & 4) << 2);
+            }
+
+            for (int y = 0; y < texture_height; ++y)
+            {
+                swizzle_y[y] =
+                    ((y >> 3) * (texture_width >> 3) * 64) |
+                    ((y & 1) << 1) |
+                    ((y & 2) << 2) |
+                    ((y & 4) << 3);
+            }
+
+            swizzle_ready = true;
+        }
+
+
 		static C3D_Tex gpu_screen_texture{};
 		static C3D_Tex gpu_screen_texture_right{};
 		static C3D_Tex gpu_ui_texture{};
@@ -313,7 +508,7 @@ try {
 				&gpu_screen_texture,
 				texture_width,
 				texture_height,
-				GPU_RGBA8))
+				GPU_RGB565))
 			{
 				BSTONE_THROW_STATIC_SOURCE(
 					"Failed to create left eye GPU texture.");
@@ -323,7 +518,7 @@ try {
 				&gpu_screen_texture_right,
 				texture_width,
 				texture_height,
-				GPU_RGBA8))
+				GPU_RGB565))
 			{
 				C3D_TexDelete(&gpu_screen_texture);
 
@@ -374,63 +569,186 @@ try {
 			gpu_screen_format_ready = true;
 		}
 
-		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+		
+        // Temporary performance profiler.
+        using ProfileClock = std::chrono::steady_clock;
+
+        static double profile_sums[4]{};
+		static double profile_pixels_sum = 0.0;
+		static double profile_flush_sum = 0.0;
+
+        static int profile_samples = 0;
+        static bool profile_stereo = false;
+
+        static char profile_line1[48] = "MEASURING...";
+        static char profile_line2[48] = "";
+
+        ProfileClock::time_point profile_marks[5];
+		double profile_pixels_frame = 0.0;
+		double profile_flush_frame = 0.0;
+
+        profile_marks[0] = ProfileClock::now();
+
+        C3D_FrameBegin(0);
+
+        profile_marks[1] = ProfileClock::now();
+
 
 		// ---------------------------------------------
 		// 1. Convertir ambos ojos del escenario a texturas GPU.
 		// ---------------------------------------------
 
+
 		const bool stereo_active =
 			vid_is_hud && ::n3ds_stereo_active;
 
-		if (vid_is_hud)
-		{
-			const int eye_count = stereo_active ? 2 : 1;
+		
+        if (vid_is_hud)
+        {
+            const int eye_count = stereo_active ? 2 : 1;
 
-			for (int eye = 0; eye < eye_count; ++eye)
-			{
-				auto& texture = eye == 0 ?
-					gpu_screen_texture : gpu_screen_texture_right;
+            // Build RGB565 lookup only when the VGA palette changes.
+            static std::array<u16, 256> palette565{};
+            static SdlPalette palette565_source{};
+            static bool palette565_valid = false;
 
-				auto* texels = static_cast<u32*>(texture.data);
-				const int source_base = eye * vga_area;
+            if (!palette565_valid || palette565_source != palette_)
+            {
+                for (std::size_t i = 0; i < palette565.size(); ++i)
+                {
+                    const u32 color = palette_[i];
+                    palette565[i] = static_cast<u16>(
+                        ((color >> 8) & 0xF800U) |
+                        ((color >> 5) & 0x07E0U) |
+                        ((color >> 3) & 0x001FU));
+                }
 
-				for (int y = 0; y < vga_height; ++y)
-				{
-					for (int x = 0; x < vga_width; ++x)
-					{
-						const int src_offset =
-							source_base + y * vga_width + x;
+                palette565_source = palette_;
+                palette565_valid = true;
+            }
 
-						const u32 color = palette_[
-							sw_vga_buffer_[src_offset]];
+            if (stereo_active)
+            {
+                eye_worker_.initialize();
+            }
 
-						const u32 rgba = (color << 8) | 0xFFU;
+            N3dsScreenConversion left_job{};
+            left_job.destination = static_cast<u16*>(gpu_screen_texture.data);
+            left_job.source = sw_vga_buffer_.data();
+            left_job.palette = palette565.data();
+            left_job.swizzle_x = swizzle_x;
+            left_job.swizzle_y = swizzle_y;
+            left_job.source_base = 0;
+            left_job.source_stride = vga_width;
+            left_job.width = vga_width;
+            left_job.height = vga_height;
 
-						const u32 tile =
-							((y >> 3) * (texture_width >> 3) +
-							(x >> 3)) * 64;
+            const auto pixels_start = ProfileClock::now();
 
-						const u32 morton =
-							(x & 1) |
-							((y & 1) << 1) |
-							((x & 2) << 1) |
-							((y & 2) << 2) |
-							((x & 4) << 2) |
-							((y & 4) << 3);
+            if (eye_count == 2)
+            {
+                N3dsScreenConversion right_job = left_job;
+                right_job.destination =
+                    static_cast<u16*>(gpu_screen_texture_right.data);
+                right_job.source_base = vga_area;
 
-						texels[tile + morton] = rgba;
-					}
-				}
+                if (eye_worker_.available())
+                {
+                    N3dsEyeWorker::Job worker_job{};
+                    worker_job.callback = &n3ds_convert_screen;
+                    worker_job.context = &right_job;
 
-				C3D_TexFlush(&texture);
-			}
-		}
+                    // Core 2 converts the right eye in parallel.
+                    eye_worker_.submit(worker_job);
+                    n3ds_convert_screen(&left_job);
+                    eye_worker_.wait();
+                }
+                else
+                {
+                    // Core-2 access is not guaranteed in every launcher.
+                    n3ds_convert_screen(&left_job);
+                    n3ds_convert_screen(&right_job);
+                }
+            }
+            else
+            {
+                n3ds_convert_screen(&left_job);
+            }
 
+            const auto pixels_end = ProfileClock::now();
+
+            // Flush textures only after both CPU conversions finish.
+            // Citro3D remains exclusively on the main thread.
+            C3D_TexFlush(&gpu_screen_texture);
+
+            if (eye_count == 2)
+            {
+                C3D_TexFlush(&gpu_screen_texture_right);
+            }
+
+            const auto flush_end = ProfileClock::now();
+
+            profile_pixels_frame +=
+                std::chrono::duration<double, std::milli>(
+                    pixels_end - pixels_start).count();
+
+            profile_flush_frame +=
+                std::chrono::duration<double, std::milli>(
+                    flush_end - pixels_end).count();
+        }
+
+		profile_marks[2] = ProfileClock::now();
 		// ---------------------------------------------
 		// 2. Convertir la interfaz a textura GPU.
 		// ---------------------------------------------
 
+        // Cache the top-screen UI texture when unchanged.
+        static VgaBuffer previous_ui;
+        static UiMaskBuffer previous_mask{};
+        static SdlPalette previous_palette{};
+        static bool previous_hud = false;
+        static bool ui_cache_valid = false;
+
+        bool ui_dirty =
+            !ui_cache_valid ||
+            previous_hud != vid_is_hud ||
+            previous_palette != palette_ ||
+            previous_mask != vid_mask_buffer_ ||
+            previous_ui.size() != vid_ui_buffer_.size();
+
+        if (!ui_dirty)
+        {
+            if (vid_is_hud)
+            {
+                // Only visible pixels matter during gameplay.
+                for (int y = 0;
+                     y < vga_ref_height && !ui_dirty;
+                     ++y)
+                {
+                    if (y < ref_3d_view_top_y ||
+                        y > ref_3d_view_bottom_y)
+                        continue;
+
+                    for (int x = 0; x < vga_ref_width; ++x)
+                    {
+                        const int i = y * vga_ref_width + x;
+
+                        if (vid_mask_buffer_[i] &&
+                            previous_ui[i] != vid_ui_buffer_[i])
+                        {
+                            ui_dirty = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                ui_dirty = previous_ui != vid_ui_buffer_;
+            }
+        }
+
+		if (ui_dirty)
 		{
 			auto* texels = static_cast<u32*>(
 				gpu_ui_texture.data
@@ -461,25 +779,23 @@ try {
 						(color << 8) |
 						(visible ? 0xFFU : 0x00U);
 
-					const u32 tile =
-						((y >> 3) * (texture_width >> 3) +
-						(x >> 3)) * 64;
+					texels[swizzle_y[y] + swizzle_x[x]] = rgba;
 
-					const u32 morton =
-						(x & 1) |
-						((y & 1) << 1) |
-						((x & 2) << 1) |
-						((y & 2) << 2) |
-						((x & 4) << 2) |
-						((y & 4) << 3);
-
-					texels[tile + morton] = rgba;
 				}
 			}
 
 			C3D_TexFlush(&gpu_ui_texture);
+
+
+            previous_ui = vid_ui_buffer_;
+            previous_mask = vid_mask_buffer_;
+            previous_palette = palette_;
+            previous_hud = vid_is_hud;
+            ui_cache_valid = true;
+
 		}
 
+		profile_marks[3] = ProfileClock::now();
 		// ---------------------------------------------
 		// 3. Definir las imágenes para Citro2D.
 		// ---------------------------------------------
@@ -595,19 +911,111 @@ try {
 
 		C2D_SceneBegin(gpu_bottom_);
 
-		if (vid_is_hud)
-		{
-			n3ds_hud::draw();
-		}
-		else
-		{
-			n3ds_intro::draw();
-		}
 
-		C3D_FrameEnd(0);
+        if (vid_is_hud)
+        {
+            n3ds_hud::draw();
 
-		// Ceder 1 ms para facilitar la ejecución del audio.
-		svcSleepThread(1000000LL);
+            // Temporary performance overlay.
+            C2D_DrawRectSolid(
+                8, 65, 0.79f,
+                190, 29,
+                C2D_Color32(2, 9, 5, 255));
+
+            n3ds_hud::draw_text(
+                12, 68,
+                profile_line1,
+                C2D_Color32(168, 255, 179, 255));
+
+            n3ds_hud::draw_text(
+                12, 80,
+                profile_line2,
+                C2D_Color32(168, 255, 179, 255));
+        }
+        else
+        {
+            n3ds_intro::draw();
+        }
+
+        C3D_FrameEnd(0);
+
+        profile_marks[4] = ProfileClock::now();
+
+        if (vid_is_hud)
+        {
+            // Don't mix 2D and stereoscopic samples.
+            if (profile_stereo != stereo_active)
+            {
+                profile_stereo = stereo_active;
+                profile_samples = 0;
+				profile_pixels_sum = 0.0;
+				profile_flush_sum = 0.0;
+
+                for (double& value : profile_sums)
+                    value = 0.0;
+
+                std::snprintf(
+                    profile_line1,
+                    sizeof(profile_line1),
+                    "MEASURING %s...",
+                    stereo_active ? "3D" : "2D");
+
+                profile_line2[0] = '\0';
+            }
+
+            for (int i = 0; i < 4; ++i)
+            {
+                profile_sums[i] +=
+                    std::chrono::duration<double, std::milli>(
+                        profile_marks[i + 1] -
+                        profile_marks[i]).count();
+            }
+
+			profile_pixels_sum += profile_pixels_frame;
+			profile_flush_sum += profile_flush_frame;
+            ++profile_samples;
+
+            if (profile_samples >= 15)
+            {
+                const double count =
+                    static_cast<double>(profile_samples);
+
+
+				std::snprintf(
+					profile_line1,
+					sizeof(profile_line1),
+					"%s W%.1f PIX%.1f FL%.1f",
+					profile_stereo ? "3D" : "2D",
+					profile_sums[0] / count,
+					profile_pixels_sum / count,
+					profile_flush_sum / count);
+
+
+                std::snprintf(
+                    profile_line2,
+                    sizeof(profile_line2),
+                    "UI %.1f DRAW %.1f",
+                    profile_sums[2] / count,
+                    profile_sums[3] / count);
+
+
+				for (double& value : profile_sums)
+					value = 0.0;
+
+				profile_pixels_sum = 0.0;
+				profile_flush_sum = 0.0;
+
+				profile_samples = 0;
+
+            }
+        }
+
+
+
+				// Yield CPU time for audio without
+				// imposing a full millisecond per frame.
+				svcSleepThread(250000LL);
+
 
 		return;
 
@@ -1152,6 +1560,8 @@ try {
 
 		gpu_bottom_ = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
+
+
 		if (!gpu_bottom_)
 		{
 			BSTONE_THROW_STATIC_SOURCE(
@@ -1222,27 +1632,42 @@ try {
 	renderer_ = window_->make_renderer(renderer_param);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
+
 void SwVideo::create_screen_texture()
 try {
-	auto param = sys::TextureInitParam{};
-	param.pixel_format = sys::PixelFormat::b8g8r8a8;
-	param.access = sys::TextureAccess::streaming;
-	param.width = vga_width;
-	param.height = vga_height;
+#if defined(__3DS__) || defined(_3DS)
+    // The 3DS backend uses Citro3D textures.
+    // No SDL screen texture is required.
+    return;
+#else
+    auto param = sys::TextureInitParam{};
+    param.pixel_format = sys::PixelFormat::b8g8r8a8;
+    param.access = sys::TextureAccess::streaming;
+    param.width = vga_width;
+    param.height = vga_height;
 
-	screen_texture_ = renderer_->make_texture(param);
+    screen_texture_ = renderer_->make_texture(param);
+#endif
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
+
 
 void SwVideo::create_ui_texture()
 try {
-	auto param = sys::TextureInitParam{};
-	param.pixel_format = sys::PixelFormat::b8g8r8a8;
-	param.access = sys::TextureAccess::streaming;
-	param.width = vga_ref_width;
-	param.height = vga_ref_height;
+#if defined(__3DS__) || defined(_3DS)
+    // Citro3D handles the 3DS UI texture.
+    return;
+#else
+    auto param = sys::TextureInitParam{};
+    param.pixel_format = sys::PixelFormat::b8g8r8a8;
+    param.access = sys::TextureAccess::streaming;
+    param.width = vga_ref_width;
+    param.height = vga_ref_height;
 
-	ui_texture_ = renderer_->make_texture(param);
+    ui_texture_ = renderer_->make_texture(param);
+#endif
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
+
 
 void SwVideo::uninitialize_textures()
 {

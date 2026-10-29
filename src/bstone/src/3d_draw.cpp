@@ -1510,8 +1510,27 @@ void CalcTics()
 	period_counter += diff_ns * TickBase;
 	const long long elapsed_periods = period_counter / one_second_ns;
 	period_counter %= one_second_ns;
-	const std::chrono::nanoseconds delay{(one_second_ns - period_counter) / TickBase};
-	std::this_thread::sleep_for(delay);
+
+	const std::chrono::nanoseconds delay{
+		(one_second_ns - period_counter) / TickBase
+	};
+
+	#if defined(__3DS__) || defined(_3DS)
+
+		// Only wait when no game tick has elapsed.
+		// Avoid wasting CPU time after an already
+		// expensive frame on New Nintendo 3DS.
+		if (elapsed_periods == 0)
+		{
+			std::this_thread::sleep_for(delay);
+		}
+
+	#else
+
+		std::this_thread::sleep_for(delay);
+
+	#endif
+
 	constexpr long long min_tics = 1;
 	constexpr long long max_tics = UINT16_MAX;
 	tics = static_cast<std::uint16_t>(bstone::clamp(elapsed_periods, min_tics, max_tics));
@@ -1597,19 +1616,12 @@ void F_MapLSRow();
 void C_MapLSRow();
 void MapLSRow();
 
+
 void ThreeDRefresh()
 {
-	#if defined(__3DS__) || defined(_3DS)
-		static double render_ms = 0.0;
-		static double present_ms = 0.0;
-		static int measured_frames = 0;
+    UpdateInfoAreaClock();
+    UpdateStatusBar();
 
-		const auto frame_start = std::chrono::steady_clock::now();
-	#endif
-
-
-	UpdateInfoAreaClock();
-	UpdateStatusBar();
 
 	vid_is_3d = true;
 
@@ -1793,21 +1805,16 @@ void ThreeDRefresh()
 
 	vid_is_3d = false;
 
+
 	#if defined(__3DS__) || defined(_3DS)
-		// Weapon at zero parallax, identical in both eyes.
+		// Render the weapon once, writing visible pixels
+		// to both eyes directly from the sprite scaler.
 		bufferofs = 0;
 		DrawPlayerWeapon();
-
-		if (n3ds_stereo_active)
-		{
-			bufferofs = vga_area;
-			DrawPlayerWeapon();
-		}
-
-		bufferofs = 0;
 	#else
 		DrawPlayerWeapon();
 	#endif
+
 
 //
 // show screen and time last cycle
@@ -1836,44 +1843,8 @@ void ThreeDRefresh()
 		DrawRadar();
 	}
 
-	// BBi
-	#if defined(__3DS__) || defined(_3DS)
-		const auto render_end = std::chrono::steady_clock::now();
-	#endif
 
 		VL_RefreshScreen();
-
-	#if defined(__3DS__) || defined(_3DS)
-		const auto present_end = std::chrono::steady_clock::now();
-
-		render_ms += std::chrono::duration<double, std::milli>(
-			render_end - frame_start).count();
-
-		present_ms += std::chrono::duration<double, std::milli>(
-			present_end - render_end).count();
-
-		measured_frames++;
-
-		if (measured_frames >= 20)
-		{
-			FILE* file = std::fopen(
-				"sdmc:/3ds/bstone/performance.txt", "a");
-
-			if (file)
-			{
-				std::fprintf(file,
-					"Render: %.2f ms | Present: %.2f ms\n",
-					render_ms / measured_frames,
-					present_ms / measured_frames);
-
-				std::fclose(file);
-			}
-
-			render_ms = 0.0;
-			present_ms = 0.0;
-			measured_frames = 0;
-		}
-	#endif
 
 	frameon++;
 }

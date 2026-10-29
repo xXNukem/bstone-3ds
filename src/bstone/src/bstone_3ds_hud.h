@@ -1142,6 +1142,7 @@ inline void draw_interference()
 // Complete bottom screen.
 // ---------------------------------------------
 
+
 inline void draw()
 {
     C2D_DrawRectSolid(
@@ -1163,7 +1164,50 @@ inline void draw()
 
     // Interferencia decorativa.
     draw_interference();
+
+    // ---------------------------------------------
+    // Temporary FPS counter for performance testing.
+    // ---------------------------------------------
+
+    static u64 fps_sample_start = osGetTime();
+    static int fps_frame_count = 0;
+    static int current_fps = 0;
+
+    ++fps_frame_count;
+
+    const u64 now = osGetTime();
+    const u64 elapsed = now - fps_sample_start;
+
+    if (elapsed >= 1000)
+    {
+        current_fps = static_cast<int>(
+            (static_cast<u64>(fps_frame_count) * 1000) /
+            elapsed);
+
+        fps_frame_count = 0;
+        fps_sample_start = now;
+    }
+
+    // Small overlay in the upper-right HUD area.
+    C2D_DrawRectSolid(
+        246, 8, 0.79f,
+        61, 16,
+        C2D_Color32(2, 9, 5, 255));
+
+    char fps_text[20];
+
+    std::snprintf(
+        fps_text,
+        sizeof(fps_text),
+        "FPS %d",
+        current_fps);
+
+    draw_text(
+        250, 12,
+        fps_text,
+        crt_bright());
 }
+
 
 } // namespace n3ds_hud
 } // namespace bstone

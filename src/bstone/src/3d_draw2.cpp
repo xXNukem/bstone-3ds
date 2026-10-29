@@ -54,6 +54,24 @@ int mr_yfrac = 0;
 int mr_dest = 0;
 
 
+#if defined(__3DS__) || defined(_3DS)
+
+// Cached floor/ceiling coordinates for each screen row.
+// Rebuilt independently for every stereo perspective.
+struct N3dsPlaneRow
+{
+    int xstep = 0;
+    int ystep = 0;
+    int startxfrac = 0;
+    int startyfrac = 0;
+    bool valid = false;
+};
+
+static std::vector<N3dsPlaneRow> n3ds_plane_rows;
+
+#endif
+
+
 /*
 ==============
 =
@@ -71,12 +89,47 @@ void DrawSpans(
 
 	mr_rowofs = mirrorofs[height];
 
-	mr_xstep = bstone::math::floating_to_fixed(psin / (2 * height));
-	mr_ystep = bstone::math::floating_to_fixed(pcos / (2 * height));
 
-	const auto length = basedist[height];
-	const auto startxfrac = bstone::math::floating_to_fixed(viewx + (length * pcos));
-	const auto startyfrac = bstone::math::floating_to_fixed(viewy - (length * psin));
+	#if defined(__3DS__) || defined(_3DS)
+
+		auto& row = n3ds_plane_rows[height];
+
+		if (!row.valid)
+		{
+			row.xstep = bstone::math::floating_to_fixed(
+				psin / (2 * height));
+
+			row.ystep = bstone::math::floating_to_fixed(
+				pcos / (2 * height));
+
+			const auto length = basedist[height];
+
+			row.startxfrac = bstone::math::floating_to_fixed(
+				viewx + (length * pcos));
+
+			row.startyfrac = bstone::math::floating_to_fixed(
+				viewy - (length * psin));
+
+			row.valid = true;
+		}
+
+		mr_xstep = row.xstep;
+		mr_ystep = row.ystep;
+
+		const auto startxfrac = row.startxfrac;
+		const auto startyfrac = row.startyfrac;
+
+	#else
+
+		mr_xstep = bstone::math::floating_to_fixed(psin / (2 * height));
+		mr_ystep = bstone::math::floating_to_fixed(pcos / (2 * height));
+
+		const auto length = basedist[height];
+		const auto startxfrac = bstone::math::floating_to_fixed(viewx + (length * pcos));
+		const auto startyfrac = bstone::math::floating_to_fixed(viewy - (length * psin));
+
+	#endif
+
 
 	if (!gp_no_shading())
 	{
@@ -159,6 +212,21 @@ void DrawPlanes()
 
 	psin = viewsin;
 	pcos = viewcos;
+
+
+	#if defined(__3DS__) || defined(_3DS)
+
+		// Camera coordinates differ between stereo eyes.
+		// Invalidate the cached rows for every new view.
+		n3ds_plane_rows.resize(halfheight);
+
+		for (auto& row : n3ds_plane_rows)
+		{
+			row.valid = false;
+		}
+
+	#endif
+
 
 	auto lastheight_d = static_cast<double>(halfheight);
 
