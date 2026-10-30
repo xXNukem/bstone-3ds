@@ -200,10 +200,7 @@ void SetPlaneViewSize()
 
 void DrawPlanes()
 {
-	if (vid_is_hw())
-	{
-		return;
-	}
+
 
 	if ((viewheight / 2) != halfheight)
 	{

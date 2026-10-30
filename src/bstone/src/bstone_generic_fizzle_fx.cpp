@@ -61,8 +61,6 @@ void GenericFizzleFX::initialize(bool has_vanilla_appearence)
 
 	if (!has_vanilla_appearence && !is_vanilla_only())
 	{
-		vid_hw_set_fizzle_fx_color_index(impl_->plot_color_);
-		vid_hw_enable_fizzle_fx_fading(impl_->is_transparent_);
 
 		return;
 	}
@@ -133,7 +131,6 @@ void GenericFizzleFX::skip_to_the_end()
 {
 	if (!has_vanilla_appearence() && !is_vanilla_only())
 	{
-		vid_hw_set_fizzle_fx_ratio(1.0F);
 
 		return;
 	}

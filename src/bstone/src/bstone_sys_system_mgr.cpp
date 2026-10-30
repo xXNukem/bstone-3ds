@@ -30,10 +30,5 @@ EventMgr& SystemMgr::get_event_mgr()
 	return do_get_event_mgr();
 }
 
-VideoMgr& SystemMgr::get_video_mgr()
-{
-	return do_get_video_mgr();
-}
-
 } // namespace sys
 } // namespace bstone

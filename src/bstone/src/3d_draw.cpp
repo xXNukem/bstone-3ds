@@ -404,10 +404,7 @@ extern const std::uint8_t* lightsource;
 
 void ScalePost()
 {
-	if (vid_is_hw())
-	{
-		return;
-	}
+
 
 	const auto height = wallheight[postx] / 8.0;
 
@@ -541,7 +538,6 @@ void HitVertWall()
 		postsource = &last_texture_data[last_texture_offset];
 	}
 
-	vid_hw_add_wall_render_item(xtile, ytile);
 }
 
 // tilehit bit 7 is 0, because it's not a door tile
@@ -616,7 +612,6 @@ void HitHorizWall()
 		postsource = &last_texture_data[last_texture_offset];
 	}
 
-	vid_hw_add_wall_render_item(xtile, ytile);
 }
 
 static int get_door_page_number(
@@ -725,12 +720,10 @@ void HitHorizDoor()
 
 	if (bs_is_tile_solid_wall(tilemap[bs_door.tilex - 1][bs_door.tiley]))
 	{
-		vid_hw_add_wall_render_item(bs_door.tilex - 1, bs_door.tiley);
 	}
 
 	if (bs_is_tile_solid_wall(tilemap[bs_door.tilex + 1][bs_door.tiley]))
 	{
-		vid_hw_add_wall_render_item(bs_door.tilex + 1, bs_door.tiley);
 	}
 
 	if (doorobjlist[door_index].action == dr_jammed)
@@ -796,7 +789,6 @@ void HitHorizDoor()
 		postsource = &last_texture_data[last_texture_offset];
 	}
 
-	vid_hw_add_door_render_item(bs_door.tilex, bs_door.tiley);
 }
 
 void HitVertDoor()
@@ -808,12 +800,10 @@ void HitVertDoor()
 
 	if (bs_is_tile_solid_wall(tilemap[bs_door.tilex][bs_door.tiley - 1]))
 	{
-		vid_hw_add_wall_render_item(bs_door.tilex, bs_door.tiley - 1);
 	}
 
 	if (bs_is_tile_solid_wall(tilemap[bs_door.tilex][bs_door.tiley + 1]))
 	{
-		vid_hw_add_wall_render_item(bs_door.tilex, bs_door.tiley + 1);
 	}
 
 	if (doorobjlist[door_index].action == dr_jammed)
@@ -879,7 +869,6 @@ void HitVertDoor()
 		postsource = &last_texture_data[last_texture_offset];
 	}
 
-	vid_hw_add_door_render_item(bs_door.tilex, bs_door.tiley);
 }
 
 // A pushable wall in action has been hit
@@ -928,7 +917,6 @@ void HitHorizPWall()
 		postsource = &last_texture_data[last_texture_offset];
 	}
 
-	vid_hw_add_pushwall_render_item(pwallx, pwally);
 }
 
 // A pushable wall in action has been hit
@@ -977,7 +965,6 @@ void HitVertPWall()
 		postsource = &last_texture_data[last_texture_offset];
 	}
 
-	vid_hw_add_pushwall_render_item(pwallx, pwally);
 }
 
 /*
@@ -1032,10 +1019,7 @@ void vga_clear_screen(
 
 void VGAClearScreen()
 {
-	if (vid_is_hw())
-	{
-		return;
-	}
+
 
 	viewflags = gamestate.flags;
 
@@ -1103,124 +1087,6 @@ namespace
 {
 
 
-void hw_draw_sprites()
-{
-	//
-	// place static objects
-	//
-
-	vid_hw_clear_static_render_list();
-
-	for (auto statptr = statobjlist.data(); statptr != laststatobj; ++statptr)
-	{
-		if (statptr->shapenum == -1)
-		{
-			continue; // object has been deleted
-		}
-
-		if (!(*statptr->visspot))
-		{
-			continue; // not visable
-		}
-
-		auto dispx = int16_t{};
-		auto dispheight = int16_t{};
-
-		TransformTile(statptr->tilex, statptr->tiley, &dispx, &dispheight);
-
-		if (dispheight <= 0)
-		{
-			continue; // to close to the object
-		}
-
-		const auto bs_static_index = static_cast<int>(statptr - statobjlist.data());
-		vid_hw_add_static_render_item(bs_static_index);
-	}
-
-
-	//
-	// place active objects
-	//
-
-	vid_hw_clear_actor_render_list();
-
-	const auto& assets_info = get_assets_info();
-
-	for (auto obj = player->next; obj; obj = obj->next)
-	{
-		if ((obj->flags & FL_OFFSET_STATES) != 0)
-		{
-			const auto shapenum = obj->temp1 + obj->state->shapenum;
-
-			if (shapenum == 0)
-			{
-				continue; // no shape
-			}
-		}
-		else
-		{
-			const auto shapenum = obj->state->shapenum;
-
-			if (shapenum == 0)
-			{
-				continue; // no shape
-			}
-		}
-
-		const auto spotloc = (obj->tilex << 6) + obj->tiley; // optimize: keep in struct?
-
-		// BBi Do not draw detonator if it's not visible.
-		if (spotloc == 0)
-		{
-			continue;
-		}
-
-		const auto visspot = &spotvis[0][0] + spotloc;
-		const auto tilespot = &tilemap[0][0] + spotloc;
-
-		//
-		// could be in any of the nine surrounding tiles
-		//
-
-		if (*visspot ||
-			(visspot[-1] && !tilespot[-1]) ||
-			(visspot[+1] && !tilespot[+1]) ||
-			(visspot[-65] && !tilespot[-65]) ||
-			(visspot[-64] && !tilespot[-64]) ||
-			(visspot[-63] && !tilespot[-63]) ||
-			(visspot[+65] && !tilespot[+65]) ||
-			(visspot[+64] && !tilespot[+64]) ||
-			(visspot[+63] && !tilespot[+63]))
-		{
-			obj->active = ac_yes;
-
-			TransformActor(obj);
-
-			if (obj->viewheight <= 0)
-			{
-				continue; // too close or far away
-			}
-
-			if (assets_info.is_ps() && (obj->flags & FL_DEADGUY) == 0)
-			{
-				obj->flags2 &= ~FL2_DAMAGE_CLOAK;
-			}
-
-			obj->flags |= FL_VISIBLE;
-		}
-		else
-		{
-			obj->flags &= ~FL_VISIBLE;
-		}
-
-		const auto bs_actor_index = static_cast<int>(obj - objlist);
-		vid_hw_add_actor_render_item(bs_actor_index);
-	}
-
-	cloaked_shape = false;
-}
-
-
 } // namespace
 
 
@@ -1235,12 +1101,7 @@ void hw_draw_sprites()
 */
 void DrawScaleds()
 {
-	if (vid_is_hw())
-	{
-		hw_draw_sprites();
 
-		return;
-	}
 
 	std::int16_t i;
 	std::int16_t least;
@@ -1468,10 +1329,7 @@ bool useBounceOffset = false;
 
 void DrawPlayerWeapon()
 {
-	if (vid_is_hw())
-	{
-		return;
-	}
+
 
 	if (playstate == ex_victorious)
 	{

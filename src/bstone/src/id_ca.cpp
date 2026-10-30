@@ -34,24 +34,17 @@ loaded into the data segment
 #include "gfxv.h"
 
 #include "bstone_audio_content_mgr.h"
-#include "bstone_audio_extractor.h"
-#include "bstone_binary_reader.h"
-#include "bstone_binary_writer.h"
-#include "bstone_bmp_image_common.h"
 #include "bstone_endian.h"
 #include "bstone_exception.h"
 #include "bstone_fs.h"
 #include "bstone_fs_utils.h"
 #include "bstone_globals.h"
-#include "bstone_image_extractor.h"
-#include "bstone_level_extractor.h"
 #include "bstone_logger.h"
 #include "bstone_memory_stream.h"
 #include "bstone_rlew_decoder.h"
 #include "bstone_sha1.h"
 #include "bstone_sprite_cache.h"
 #include "bstone_string_helper.h"
-#include "bstone_text_extractor.h"
 
 #include "bstone_opl3.h"
 #include "bstone_audio_decoder.h"
@@ -1726,94 +1719,6 @@ bool ca_is_level_exists(int level_number)
 	return
 		level_number >= 0 && level_number < map_count &&
 		mapheaderseg[level_number].name[0] != '\0';
-}
-
-void ca_extract_vga_palette(const std::string& destination_dir)
-{
-	auto images_extractor = bstone::ImageExtractor{};
-	images_extractor.extract_vga_palette(destination_dir);
-}
-
-void ca_extract_walls(const std::string& destination_dir)
-{
-	auto images_extractor = bstone::ImageExtractor{};
-	images_extractor.extract_walls(destination_dir);
-}
-
-void ca_extract_sprites(const std::string& destination_dir)
-{
-	auto images_extractor = bstone::ImageExtractor{};
-	images_extractor.extract_sprites(destination_dir);
-}
-
-void ca_extract_music(
-	const std::string& destination_dir)
-{
-	bstone::globals::logger->log_information();
-	bstone::globals::logger->log_information("<<< ================");
-	bstone::globals::logger->log_information("Extracting music.");
-	bstone::globals::logger->log_information(("Destination dir: \"" + destination_dir + "\"").c_str());
-
-	auto audio_content_mgr = bstone::make_audio_content_mgr(*bstone::globals::page_mgr);
-	auto audio_extractor = bstone::make_audio_extractor(*audio_content_mgr);
-
-	const auto normalized_dst_dir = bstone::fs_utils::normalize_path(destination_dir);
-	bstone::fs::create_directories(normalized_dst_dir.c_str());
-	audio_extractor->extract_music(normalized_dst_dir);
-
-	bstone::globals::logger->log_information(">>> ================");
-}
-
-void ca_extract_sfx(
-	const std::string& destination_dir)
-{
-	bstone::globals::logger->log_information();
-	bstone::globals::logger->log_information("<<< ================");
-	bstone::globals::logger->log_information("Extracting sfx.");
-	bstone::globals::logger->log_information(("Destination dir: \"" + destination_dir + "\"").c_str());
-
-	auto audio_content_mgr = bstone::make_audio_content_mgr(*bstone::globals::page_mgr);
-	auto audio_extractor = bstone::make_audio_extractor(*audio_content_mgr);
-
-	const auto normalized_dst_dir = bstone::fs_utils::normalize_path(destination_dir);
-	bstone::fs::create_directories(normalized_dst_dir.c_str());
-	audio_extractor->extract_sfx(normalized_dst_dir);
-
-	bstone::globals::logger->log_information(">>> ================");
-}
-
-void ca_extract_texts(
-	const std::string& destination_dir)
-{
-	bstone::globals::logger->log_information();
-	bstone::globals::logger->log_information("<<< ================");
-	bstone::globals::logger->log_information("Extracting text.");
-	bstone::globals::logger->log_information(("Destination dir: \"" + destination_dir + "\"").c_str());
-
-	auto text_extractor = bstone::TextExtractor{};
-	const std::string normalized_destination_dir = bstone::fs_utils::normalize_path(destination_dir);
-	bstone::fs::create_directories(normalized_destination_dir.c_str());
-	text_extractor.extract_text(normalized_destination_dir);
-
-	bstone::globals::logger->log_information(">>> ================");
-}
-
-void ca_extract_levels(const std::string& destination_dir)
-{
-	auto level_extractor = bstone::LevelExtractor{};
-	level_extractor.extract_levels(destination_dir);
-}
-
-void ca_extract_all(
-	const std::string& destination_dir)
-{
-	ca_extract_vga_palette(destination_dir);
-	ca_extract_walls(destination_dir);
-	ca_extract_sprites(destination_dir);
-	ca_extract_music(destination_dir);
-	ca_extract_sfx(destination_dir);
-	ca_extract_texts(destination_dir);
-	ca_extract_levels(destination_dir);
 }
 
 int ca_map_aog_sw_sprite_id_to_aog_full(

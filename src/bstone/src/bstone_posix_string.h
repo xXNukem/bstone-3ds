@@ -6,7 +6,6 @@ SPDX-License-Identifier: MIT
 
 // POSIX API string.
 
-#ifndef _WIN32
 
 #include <cstdint>
 
@@ -29,5 +28,3 @@ public:
 };
 
 } // namespace bstone
-
-#endif // _WIN32

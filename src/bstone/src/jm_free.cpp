@@ -34,7 +34,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_globals.h"
 #include "bstone_logger.h"
 #include "bstone_version.h"
-#include "bstone_content_path.h"
 #include "bstone_fs_utils.h"
 #include "bstone_sys_message_box.h"
 #if defined(__3DS__) || defined(_3DS)
@@ -670,10 +669,7 @@ void find_contents()
 	//
 	auto search_paths = SearchPaths{};
 
-	if (is_data_dir_custom_)
-	{
-		add_search_path("custom dir", data_dir_, search_paths);
-	}
+	add_search_path("data dir", data_dir_, search_paths);
 
 	{
 		const auto working_full_dir = bstone::fs_utils::append_path_separator(
@@ -688,37 +684,6 @@ void find_contents()
 		add_search_path("profile dir", profile_full_dir, search_paths);
 	}
 		
-	{
-		const auto source_name = std::string{"GOG"};
-		const auto content_path = bstone::make_content_path(bstone::ContentPathProvider::gog);
-
-		if (!content_path.aog_.empty())
-		{
-			add_search_path(source_name, content_path.aog_, search_paths);
-		}
-
-		if (!content_path.ps_.empty())
-		{
-			add_search_path(source_name, content_path.ps_, search_paths);
-		}
-	}
-
-	{
-		const auto source_name = std::string{"Steam"};
-		const auto content_path = bstone::make_content_path(bstone::ContentPathProvider::steam);
-
-		if (!content_path.aog_.empty())
-		{
-			add_search_path(source_name, content_path.aog_, search_paths);
-		}
-
-		if (!content_path.ps_.empty())
-		{
-			add_search_path(source_name, content_path.ps_, search_paths);
-		}
-	}
-
-
 	// Find contents.
 	//
 	auto found_contents = FoundContents{};
@@ -1224,105 +1189,6 @@ void PreDemo()
 }
 
 
-void check_for_extract_options()
-{
-	{
-		constexpr auto extract_all_option_name_sv = bstone::StringView{"extract_all"};
-
-		if (g_args.has_option(extract_all_option_name_sv))
-		{
-			const auto dst_dir_sv = g_args.get_option_value(extract_all_option_name_sv);
-			const auto dst_dir = std::string{dst_dir_sv.cbegin(), dst_dir_sv.cend()};
-			ca_extract_all(dst_dir);
-			Quit();
-		}
-	}
-
-	{
-		constexpr auto extract_vga_palette_option_name_sv = bstone::StringView{"extract_vga_palette"};
-
-		if (g_args.has_option(extract_vga_palette_option_name_sv))
-		{
-			const auto dst_dir_sv = g_args.get_option_value(extract_vga_palette_option_name_sv);
-			const auto dst_dir = std::string{dst_dir_sv.cbegin(), dst_dir_sv.cend()};
-			ca_extract_vga_palette(dst_dir);
-			Quit();
-		}
-	}
-
-	{
-		constexpr auto extract_walls_option_name_sv = bstone::StringView{"extract_walls"};
-
-		if (g_args.has_option(extract_walls_option_name_sv))
-		{
-			const auto dst_dir_sv = g_args.get_option_value(extract_walls_option_name_sv);
-			const auto dst_dir = std::string{dst_dir_sv.cbegin(), dst_dir_sv.cend()};
-			ca_extract_walls(dst_dir);
-			Quit();
-		}
-	}
-
-	{
-		constexpr auto extract_sprites_option_name_sv = bstone::StringView{"extract_sprites"};
-
-		if (g_args.has_option(extract_sprites_option_name_sv))
-		{
-			const auto dst_dir_sv = g_args.get_option_value(extract_sprites_option_name_sv);
-			const auto dst_dir = std::string{dst_dir_sv.cbegin(), dst_dir_sv.cend()};
-			ca_extract_sprites(dst_dir);
-			Quit();
-		}
-	}
-
-	{
-		constexpr auto extract_musics_option_name_sv = bstone::StringView{"extract_music"};
-
-		if (g_args.has_option(extract_musics_option_name_sv))
-		{
-			const auto dst_dir_sv = g_args.get_option_value(extract_musics_option_name_sv);
-			const auto dst_dir = std::string{dst_dir_sv.cbegin(), dst_dir_sv.cend()};
-			ca_extract_music(dst_dir);
-			Quit();
-		}
-	}
-
-	{
-		constexpr auto extract_sfx_option_name_sv = bstone::StringView{"extract_sfx"};
-
-		if (g_args.has_option(extract_sfx_option_name_sv))
-		{
-			const auto extract_dir_sv = g_args.get_option_value(extract_sfx_option_name_sv);
-			const auto extract_dir = std::string{extract_dir_sv.cbegin(), extract_dir_sv.cend()};
-			ca_extract_sfx(extract_dir);
-			Quit();
-		}
-	}
-
-	{
-		constexpr auto extract_texts_option_name_sv = bstone::StringView{"extract_texts"};
-
-		if (g_args.has_option(extract_texts_option_name_sv))
-		{
-			const auto dst_dir_sv = g_args.get_option_value(extract_texts_option_name_sv);
-			const auto dst_dir = std::string{dst_dir_sv.cbegin(), dst_dir_sv.cend()};
-			ca_extract_texts(dst_dir);
-			Quit();
-		}
-	}
-
-	{
-		constexpr auto extract_levels_option_name_sv = bstone::StringView{"extract_levels"};
-
-		if (g_args.has_option(extract_levels_option_name_sv))
-		{
-			const auto dst_dir_sv = g_args.get_option_value(extract_levels_option_name_sv);
-			const auto dst_dir = std::string{dst_dir_sv.cbegin(), dst_dir_sv.cend()};
-			ca_extract_levels(dst_dir);
-			Quit();
-		}
-	}
-}
-
 void InitGame()
 {
 	vid_is_movie = true;
@@ -1333,7 +1199,6 @@ void InitGame()
 	CA_Startup();
 	bstone::globals::page_mgr = bstone::make_page_mgr();
 
-	check_for_extract_options();
 	read_high_scores();
 	InitPlaytemp();
 

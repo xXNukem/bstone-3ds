@@ -1,24 +1,29 @@
-cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
-project(bstone_solution)
+cmake_minimum_required(VERSION 3.18)
 
-message(STATUS "[bstone_solution]")
+# Select the devkitPro toolchain before enabling any compiler.
+# An explicit -DCMAKE_TOOLCHAIN_FILE takes precedence.
+if (NOT CMAKE_TOOLCHAIN_FILE)
+    if (NOT DEFINED ENV{DEVKITPRO})
+        message(FATAL_ERROR "Set DEVKITPRO or pass -DCMAKE_TOOLCHAIN_FILE=/path/to/devkitpro/cmake/3DS.cmake")
+    endif ()
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{DEVKITPRO}/cmake/3DS.cmake" CACHE FILEPATH "devkitARM Nintendo 3DS toolchain")
+endif ()
 
-option(BSTONE_USE_STATIC_LINKING "Link build statically." OFF)
-message(STATUS "[bstone_solution] Static linking: ${BSTONE_USE_STATIC_LINKING}")
+project(bstone_solution LANGUAGES C CXX)
 
-option(BSTONE_TESTS "Build tests." OFF)
-message(STATUS "[bstone_solution] Build tests: ${BSTONE_TESTS}")
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS" OR NOT COMMAND ctr_create_3dsx)
+    message(FATAL_ERROR "BStone 3DS requires the devkitPro Nintendo 3DS toolchain (cmake/3DS.cmake).")
+endif ()
 
-option(BSTONE_TRIM_FILE_PATHS_IN_EXE "Trim file names on the left in the executable." OFF)
-message(STATUS "[bstone_solution] Trim file names in the executable: ${BSTONE_TRIM_FILE_PATHS_IN_EXE}")
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif ()
 
-option(BSTONE_NO_ASSERT "Disable assertion." OFF)
-message(STATUS "[bstone_solution] Disable assertion: ${BSTONE_NO_ASSERT}")
+option(BSTONE_NO_ASSERT "Disable assertions." OFF)
+option(BSTONE_MORE_COMPILER_WARNINGS "Enable additional compiler warnings." OFF)
+option(BSTONE_USE_PCH "Use precompiled headers." OFF)
 
-option(BSTONE_INTERNAL_SDL2 "Use bundled SDL2 source code." OFF)
-message(STATUS "[bstone_solution] Internal SDL2: ${BSTONE_INTERNAL_SDL2}")
-
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 if ("${BSTONE_CI_GIT_HASH}" STREQUAL "")
 	include(GetGitHeadHash)
@@ -30,7 +35,9 @@ else ()
 	set(BSTONE_GIT_HASH "${BSTONE_CI_GIT_HASH}")
 endif ()
 
-string(SUBSTRING "${BSTONE_GIT_HASH}" 0 8 BSTONE_GIT_HASH_SHORT)
+if (BSTONE_GIT_HASH)
+    string(SUBSTRING "${BSTONE_GIT_HASH}" 0 8 BSTONE_GIT_HASH_SHORT)
+endif ()
 message(STATUS "[bstone_solution] Short Git hash: ${BSTONE_GIT_HASH_SHORT}")
 
 add_subdirectory(src)

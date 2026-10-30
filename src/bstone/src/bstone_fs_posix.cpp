@@ -4,7 +4,6 @@ Copyright (c) 2023-2024 Boris I. Bendovsky (bibendovsky@hotmail.com) and Contrib
 SPDX-License-Identifier: MIT
 */
 
-#ifndef _WIN32
 
 #include <cstdint>
 
@@ -49,13 +48,7 @@ void set_working_directory(const char* path)
 
 void create_directory(const char* path)
 {
-#if defined(_3DS) || defined(__3DS__)
-	const auto umask_mode = mode_t{};
-#else
-	const auto umask_mode = umask(0);
-	umask(umask_mode);
-#endif
-	const auto mode = static_cast<mode_t>((S_IRWXU | S_IRWXG | S_IRWXO) & ~umask_mode);
+	const auto mode = static_cast<mode_t>(S_IRWXU | S_IRWXG | S_IRWXO);
 	const auto mkdir_result = mkdir(path, mode);
 
 	if (mkdir_result != 0)
@@ -73,8 +66,6 @@ void create_directories(const char* path)
 {
 	auto posix_path = PosixString{path};
 	const auto size_with_null = posix_path.get_size() + 1;
-	auto got_umask = false;
-	auto umask_mode = mode_t{};
 	auto posix_chars = posix_path.get_data();
 
 	for (auto i = std::intptr_t{}; i < size_with_null; ++i)
@@ -87,18 +78,7 @@ void create_directories(const char* path)
 		const auto old_char = posix_chars[i];
 		posix_chars[i] = '\0';
 
-		if (!got_umask)
-		{
-			got_umask = true;
-#if defined(_3DS) || defined(__3DS__)
-			umask_mode = mode_t{};
-#else
-			umask_mode = umask(0);
-			umask(umask_mode);
-#endif
-		}
-
-		const auto mode = static_cast<mode_t>((S_IRWXU | S_IRWXG | S_IRWXO) & (~umask_mode));
+		const auto mode = static_cast<mode_t>(S_IRWXU | S_IRWXG | S_IRWXO);
 		const auto mkdir_result = mkdir(posix_chars, mode);
 
 		if (mkdir_result != 0)
@@ -183,5 +163,3 @@ bool is_regular_file_exists(const char* path)
 
 } // namespace fs
 } // namespace bstone
-
-#endif // _WIN32

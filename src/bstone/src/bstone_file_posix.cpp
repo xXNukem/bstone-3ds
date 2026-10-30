@@ -6,12 +6,10 @@ SPDX-License-Identifier: MIT
 
 // File primitive (POSIX).
 
-#ifndef _WIN32
 
 #include <limits.h>
 #include <stdio.h>
 #include <algorithm>
-#include <sys/file.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -25,9 +23,6 @@ namespace bstone {
 
 namespace {
 
-#if !defined(_3DS) && !defined(__3DS__)
-typedef struct flock FilePosixFLock;
-#endif
 
 typedef struct stat FilePosixStat;
 
@@ -71,19 +66,6 @@ void file_posix_close(int handle)
     file_posix_ignore_result(posix_result);
 }
 
-#if !defined(_3DS) && !defined(__3DS__)
-
-bool file_posix_truncate(int handle, off_t size)
-{
-    if (!file_posix_is_off_t_valid(size))
-    {
-        return false;
-    }
-
-    return ftruncate(handle, size) == 0;
-}
-
-#endif
 
 int64_t file_posix_lseek(int handle, int64_t offset, int whence)
 {
@@ -99,7 +81,6 @@ int64_t file_posix_lseek(int handle, int64_t offset, int whence)
 // File locking.
 // --------------------------------------------------------------------------
 
-#if defined(_3DS) || defined(__3DS__)
 
 // Nintendo 3DS: provisional implementation without POSIX file locking.
 
@@ -118,54 +99,6 @@ bool file_posix_unlock(int)
     return true;
 }
 
-#else
-
-bool file_posix_lock_fcntl(int handle, int fcntl_op, short lock_type)
-{
-    FilePosixFLock posix_flock = FilePosixFLock();
-    posix_flock.l_type = lock_type;
-    posix_flock.l_whence = SEEK_SET;
-
-    return fcntl(handle, fcntl_op, &posix_flock) == 0;
-}
-
-#ifndef F_OFD_SETLK
-
-bool file_posix_lock_flock(int handle, short lock_type)
-{
-    return flock(handle, lock_type | LOCK_NB) == 0;
-}
-
-#endif // F_OFD_SETLK
-
-bool file_posix_lock_shared(int handle)
-{
-#ifdef F_OFD_SETLK
-    return file_posix_lock_fcntl(handle, F_OFD_SETLK, F_RDLCK);
-#else
-    return file_posix_lock_flock(handle, LOCK_SH);
-#endif
-}
-
-bool file_posix_lock_exclusive(int handle)
-{
-#ifdef F_OFD_SETLK
-    return file_posix_lock_fcntl(handle, F_OFD_SETLK, F_WRLCK);
-#else
-    return file_posix_lock_flock(handle, LOCK_EX);
-#endif
-}
-
-bool file_posix_unlock(int handle)
-{
-#ifdef F_OFD_SETLK
-    return file_posix_lock_fcntl(handle, F_OFD_SETLK, F_UNLCK);
-#else
-    return file_posix_lock_flock(handle, LOCK_UN);
-#endif
-}
-
-#endif // Nintendo 3DS
 
 // --------------------------------------------------------------------------
 
@@ -219,7 +152,6 @@ bool file_posix_open(
         oflag |= O_WRONLY;
     }
 
-#if defined(_3DS) || defined(__3DS__)
 
     // Truncate directly when opening the file.
     if (is_truncate)
@@ -227,7 +159,6 @@ bool file_posix_open(
         oflag |= O_TRUNC;
     }
 
-#endif
 
     // Open the file.
 
@@ -288,20 +219,6 @@ bool file_posix_open(
     else
     {}
 
-#if !defined(_3DS) && !defined(__3DS__)
-
-    // Truncate the file if necessary.
-
-    if (is_truncate)
-    {
-        if (!file_posix_truncate(handle, 0))
-        {
-            error_code = ec_file_truncate;
-            return false;
-        }
-    }
-
-#endif
 
     return true;
 }
@@ -519,21 +436,10 @@ int64_t File::get_size() const
 
 bool File::set_size(int64_t size) const
 {
-#if defined(_3DS) || defined(__3DS__)
 
     // TODO: Implement file resizing for Nintendo 3DS.
     return false;
 
-#else
-
-    if (!file_posix_is_off_t_valid(size))
-    {
-        return false;
-    }
-
-    return ftruncate(handle_, static_cast<off_t>(size)) == 0;
-
-#endif
 }
 
 bool File::flush() const
@@ -557,5 +463,3 @@ bool File::unlock() const
 }
 
 } // namespace bstone
-
-#endif // _WIN32

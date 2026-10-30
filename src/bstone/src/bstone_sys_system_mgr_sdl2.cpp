@@ -16,7 +16,7 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_audio_mgr_sdl2.h"
 #include "bstone_sys_event_mgr_sdl2.h"
 #include "bstone_sys_exception_sdl2.h"
-#include "bstone_sys_video_mgr_sdl2.h"
+#include "bstone_sys_sdl2_subsystem.h"
 #include "bstone_sys_system_mgr.h"
 
 #define BSTONE_SDL_2_0_2 SDL_VERSION_ATLEAST(2,0,2)
@@ -85,13 +85,12 @@ private:
 	Logger& logger_;
 	AudioMgrUPtr audio_mgr_{};
 	EventMgrUPtr event_mgr_{};
-	VideoMgrUPtr video_mgr_{};
+	Sdl2Subsystem video_subsystem_{};
 
 private:
 	Logger& do_get_logger() override;
 	AudioMgr& do_get_audio_mgr() override;
 	EventMgr& do_get_event_mgr() override;
-	VideoMgr& do_get_video_mgr() override;
 
 private:
 	static MemoryResource& get_memory_resource();
@@ -120,7 +119,9 @@ try
 
 	audio_mgr_ = make_sdl2_audio_mgr(logger_);
 	event_mgr_ = make_sdl2_event_mgr(logger_);
-	video_mgr_ = make_sdl2_video_mgr(logger_);
+    // SDL's N3DS video backend owns gfxInit/gfxExit and the HID/APT event pump.
+    auto video_subsystem = Sdl2Subsystem{SDL_INIT_VIDEO};
+    video_subsystem_.swap(video_subsystem);
 
 	logger_.log_information(">>> SDL system manager started up.");
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
@@ -129,7 +130,11 @@ Sdl2SystemMgr::~Sdl2SystemMgr()
 {
 	logger_.log_information("Shut down SDL system manager.");
 
-	video_mgr_ = nullptr;
+    // The game presenter has already released Citro2D/Citro3D in VL_Shutdown.
+    {
+        auto video_subsystem = Sdl2Subsystem{};
+        video_subsystem_.swap(video_subsystem);
+    }
 	event_mgr_ = nullptr;
 	audio_mgr_ = nullptr;
 
@@ -161,11 +166,6 @@ EventMgr& Sdl2SystemMgr::do_get_event_mgr()
 	return *event_mgr_;
 }
 
-VideoMgr& Sdl2SystemMgr::do_get_video_mgr()
-{
-	return *video_mgr_;
-}
-
 MemoryResource& Sdl2SystemMgr::get_memory_resource()
 {
 	static SinglePoolResource<Sdl2SystemMgr> memory_pool{};
@@ -187,7 +187,7 @@ void Sdl2SystemMgr::configure_event_types() noexcept
 
 	SDL_EventState(SDL_DISPLAYEVENT, SDL_DISABLE); // v2.0.9+ (0x150)
 
-	SDL_EventState(SDL_WINDOWEVENT, SDL_ENABLE);
+	SDL_EventState(SDL_WINDOWEVENT, SDL_DISABLE);
 	SDL_EventState(SDL_SYSWMEVENT, SDL_DISABLE);
 
 	SDL_EventState(SDL_KEYDOWN, SDL_ENABLE);

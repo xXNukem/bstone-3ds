@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
 project(bstone_lib_stb VERSION 1.0.0 LANGUAGES NONE)
 
 message(STATUS "[bstone_lib_stb] v${PROJECT_VERSION}")

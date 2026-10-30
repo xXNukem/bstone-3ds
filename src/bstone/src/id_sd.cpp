@@ -120,13 +120,11 @@ auto snd_mix_size_cvar = bstone::CVar{
 
 constexpr auto snd_driver_cvar_name = bstone::StringView{"snd_driver"};
 constexpr auto snd_driver_cvar_system = bstone::StringView{"system"};
-constexpr auto snd_driver_cvar_openal = bstone::StringView{"openal"};
 
 constexpr bstone::StringView snd_driver_cvar_values[] =
 {
 	snd_auto_detect_string,
 	snd_driver_cvar_system,
-	snd_driver_cvar_openal,
 };
 
 auto snd_driver_cvar = bstone::CVar{
@@ -135,26 +133,6 @@ auto snd_driver_cvar = bstone::CVar{
 	bstone::CVarFlags::archive,
 	snd_auto_detect_string,
 	bstone::make_span(snd_driver_cvar_values)};
-
-// snd_oal_library
-
-constexpr auto snd_oal_library_cvar_name = bstone::StringView{"snd_oal_library"};
-
-auto snd_oal_library_cvar = bstone::CVar{
-	bstone::CVarStringTag{},
-	snd_oal_library_cvar_name,
-	bstone::CVarFlags::archive,
-	bstone::StringView{}};
-
-// snd_oal_device_name
-
-constexpr auto snd_oal_device_name_cvar_name = bstone::StringView{"snd_oal_device_name"};
-
-auto snd_oal_device_name_cvar = bstone::CVar{
-	bstone::CVarStringTag{},
-	snd_oal_device_name_cvar_name,
-	bstone::CVarFlags::archive,
-	bstone::StringView{}};
 
 // snd_opl3_type
 
@@ -259,8 +237,6 @@ void sd_initialize_cvars(bstone::CVarMgr& cvar_mgr)
 	cvar_mgr.add(snd_rate_cvar);
 	cvar_mgr.add(snd_mix_size_cvar);
 	cvar_mgr.add(snd_driver_cvar);
-	cvar_mgr.add(snd_oal_library_cvar);
-	cvar_mgr.add(snd_oal_device_name_cvar);
 	cvar_mgr.add(snd_opl3_type_cvar);
 	cvar_mgr.add(snd_is_sfx_enabled_cvar);
 	cvar_mgr.add(snd_sfx_type_cvar);
@@ -432,11 +408,6 @@ AudioDriverType sd_get_driver_type_from_cvar() noexcept
 		return AudioDriverType::system;
 	}
 
-	if (driver_sv == snd_driver_cvar_openal)
-	{
-		return AudioDriverType::openal;
-	}
-
 	return AudioDriverType::auto_detect;
 }
 
@@ -469,40 +440,16 @@ void sd_startup()
 	{
 		const auto rate = snd_rate_cvar.get_int32();
 		const auto mix_size = snd_mix_size_cvar.get_int32();
-		const auto user_driver_type = sd_get_driver_type_from_cvar();
-
-		using DriverTypes = std::vector<AudioDriverType>;
-		auto driver_types = DriverTypes{};
-		driver_types.reserve(8);
-
-		if (user_driver_type == AudioDriverType::auto_detect)
-		{
-			driver_types.emplace_back(AudioDriverType::openal);
-			driver_types.emplace_back(AudioDriverType::system);
-		}
-		else
-		{
-			driver_types.emplace_back(user_driver_type);
-		}
-
 		auto is_driver_initialized = false;
 
-		for (const auto& driver_type : driver_types)
+		try
 		{
-			try
-			{
-				sd_make_mixer(driver_type, rate, mix_size);
-				is_driver_initialized = true;
-			}
-			catch (...)
-			{
-				bstone::globals::logger->log_current_exception();
-			}
-
-			if (is_driver_initialized)
-			{
-				break;
-			}
+			sd_make_mixer(sd_get_driver_type_from_cvar(), rate, mix_size);
+			is_driver_initialized = true;
+		}
+		catch (...)
+		{
+			bstone::globals::logger->log_current_exception();
 		}
 
 		if (is_driver_initialized)
@@ -915,16 +862,6 @@ void sd_update_listener_r3_orientation()
 	{
 		sd_mixer_->set_listener_r3_orientation(listener_r3_orientation);
 	}
-}
-
-bstone::StringView sd_get_oal_library() noexcept
-{
-	return snd_oal_library_cvar.get_string();
-}
-
-bstone::StringView sd_get_oal_device_name() noexcept
-{
-	return snd_oal_device_name_cvar.get_string();
 }
 
 void sd_play_ui_sound(int sound_index)
@@ -1374,10 +1311,6 @@ void sd_set_audio_driver_type(AudioDriverType audio_driver_type)
 	{
 		case AudioDriverType::system:
 			snd_driver_cvar.set_string(snd_driver_cvar_system);
-			break;
-
-		case AudioDriverType::openal:
-			snd_driver_cvar.set_string(snd_driver_cvar_openal);
 			break;
 
 		default:

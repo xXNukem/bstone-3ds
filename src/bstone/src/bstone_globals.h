@@ -25,9 +25,6 @@ extern PageMgrUPtr page_mgr;
 
 extern sys::SystemMgrUPtr sys_system_mgr;
 extern sys::EventMgr* sys_event_mgr;
-extern sys::VideoMgr* sys_video_mgr;
-extern sys::MouseMgr* sys_mouse_mgr;
-extern sys::WindowMgr* sys_window_mgr;
 
 extern LoggerUPtr logger;
 

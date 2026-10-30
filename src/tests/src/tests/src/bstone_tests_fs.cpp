@@ -10,11 +10,7 @@ auto tester = bstone::Tester{};
 
 // ==========================================================================
 
-#ifdef _WIN32
-	#define BSTONE_TESTS_PATH_SEPARATOR_STRING "\\"
-#else
 	#define BSTONE_TESTS_PATH_SEPARATOR_STRING "/"
-#endif
 
 // ==========================================================================
 

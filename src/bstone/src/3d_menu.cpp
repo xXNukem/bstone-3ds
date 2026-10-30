@@ -128,7 +128,6 @@ enum MenuVideoLables
 {
 	mvl_widescreen,
 	mvl_stretch_ui,
-	mvl_filler_color,
 };
 // BBi
 
@@ -418,7 +417,7 @@ CP_iteminfo NewItems = {NM_X, NM_Y, 4, 1, 0, 16, {60, -2, 105, 16, 1}};
 CP_iteminfo SwitchItems = {MENU_X, 0, 0, 0, 0, 9, {87, -1, 132, 7, 1}};
 
 // BBi
-CP_iteminfo video_items = {MENU_X, MENU_Y + 30, 3, 0, 0, 9, {77, -1, 154, 7, 1}};
+CP_iteminfo video_items = {MENU_X, MENU_Y + 30, 2, 0, 0, 9, {77, -1, 154, 7, 1}};
 CP_iteminfo switches2_items = {MENU_X, MENU_Y + 30, 5, 0, 0, 9, {87, -1, 132, 7, 1}};
 // BBi
 
@@ -550,14 +549,11 @@ CP_itemtype CusMenu[] = {
 };
 
 // BBi
-void filler_color_routine(
-	const std::int16_t index);
 
 CP_itemtype video_menu[] =
 {
 	{AT_ENABLED, "WIDESCREEN", nullptr},
 	{AT_ENABLED, "STRETCH UI", nullptr},
-	{AT_ENABLED, "FILLER COLOR", filler_color_routine},
 };
 // BBi
 
@@ -2641,13 +2637,12 @@ struct SoundDriverItem
 	std::string name{};
 }; // SoundDriverItem
 
-constexpr auto sound_driver_count = 3;
+constexpr auto sound_driver_count = 2;
 
 const SoundDriverItem sound_drivers[sound_driver_count] =
 {
 	SoundDriverItem{AudioDriverType::auto_detect, "AUTO-DETECT"},
 	SoundDriverItem{AudioDriverType::system, "SYSTEM"},
-	SoundDriverItem{AudioDriverType::openal, "OPENAL"},
 };
 
 struct SoundOpl3TypeItem
@@ -2716,10 +2711,6 @@ void initialize_sound_driver_index()
 	{
 		case AudioDriverType::system:
 			sound_driver_index = 1;
-			break;
-
-		case AudioDriverType::openal:
-			sound_driver_index = 2;
 			break;
 
 		case AudioDriverType::auto_detect:
@@ -3342,10 +3333,6 @@ void CP_ExitOptions(
 void CP_Control(
 	std::int16_t)
 {
-#ifdef __vita__
-	MouseSensitivity(0);
-	return;
-#endif
 
 	enum
 	{
@@ -3419,11 +3406,7 @@ void DrawMousePos()
 void DrawMouseSens()
 {
 	ClearMScreen();
-#ifdef __vita__
-	DrawMenuTitle("JOYSTICK SENSITIVITY");
-#else
 	DrawMenuTitle("MOUSE SENSITIVITY");
-#endif
 	DrawInstructions(IT_MOUSE_SEN);
 
 	fontnumber = 4;
@@ -4299,13 +4282,13 @@ void ReadAnyControl(
 
 		const u32 keys = hidKeysHeld();
 
-		if (keys & KEY_DUP)
+		if (keys & KEY_UP)
 			ci->dir = dir_North;
-		else if (keys & KEY_DDOWN)
+		else if (keys & KEY_DOWN)
 			ci->dir = dir_South;
-		else if (keys & KEY_DLEFT)
+		else if (keys & KEY_LEFT)
 			ci->dir = dir_West;
-		else if (keys & KEY_DRIGHT)
+		else if (keys & KEY_RIGHT)
 			ci->dir = dir_East;
 
 		ci->button0 = (keys & KEY_A) != 0;
@@ -4899,7 +4882,6 @@ void draw_video_descriptions(
 	const char* instructions[] = {
 		"TOGGLES BETWEEN WIDESCREEN AND 4X3 MODES",
 		"TOGGLES STRETCHING OF USER INTERFACE",
-		"SELECTS FILLER'S COLOR",
 	};
 
 	fontnumber = 2;
@@ -4957,9 +4939,6 @@ void video_draw_switch(
 
 			switch (i)
 			{
-			case mvl_filler_color:
-				continue;
-
 			case mvl_widescreen:
 				if (vid_cfg_is_widescreen())
 				{
@@ -5071,9 +5050,7 @@ void cp_video(
 		{
 
 		case mvl_widescreen:
-#ifndef __vita__
 			vid_cfg_set_is_widescreen(!vid_cfg_is_widescreen());
-#endif
 			ShootSnd();
 			video_draw_switch(video_items.curpos);
 			vl_update_widescreen();
@@ -5088,13 +5065,6 @@ void cp_video(
 			ShootSnd();
 			video_draw_switch(video_items.curpos);
 			VL_RefreshScreen();
-			break;
-
-		case mvl_filler_color:
-			menu_play_esc_pressed_sound();
-			video_draw_menu();
-			MenuFadeIn();
-			WaitKeyUp();
 			break;
 
 		default:
@@ -5276,218 +5246,6 @@ void cp_switches2(
 ///
 
 ///
-constexpr auto filler_cell_width = 9;
-constexpr auto filler_cell_height = 8;
-constexpr auto filler_cells_x = (vga_ref_width - (16 * filler_cell_width)) / 2;
-constexpr auto filler_cells_y = 36;
-
-
-void draw_filler_color_menu()
-{
-	CA_CacheScreen(BACKGROUND_SCREENPIC);
-
-	auto color_index = 0;
-
-	auto y = filler_cells_y;
-
-	for (auto h = 0; h < 16; ++h)
-	{
-		auto x = filler_cells_x;
-
-		for (auto w = 0; w < 16; ++w)
-		{
-			VL_Bar(x, y, filler_cell_width, filler_cell_height, static_cast<std::uint8_t>(color_index++));
-
-			x += filler_cell_width;
-		}
-
-		y += filler_cell_height;
-	}
-}
-
-constexpr int weight_color(
-	int r,
-	int g,
-	int b) noexcept
-{
-	return (r << 16) | (g << 8) | b;
-}
-
-int find_highlight_filler_color_index(
-	int color_index)
-{
-	const auto src_palette_index = color_index * 3;
-
-	const auto src_r = vgapal[src_palette_index + 0];
-	const auto src_g = vgapal[src_palette_index + 1];
-	const auto src_b = vgapal[src_palette_index + 2];
-
-	const auto src_weight = weight_color(src_r, src_g, src_b);
-
-	auto max_match_abs_weight_diff = 0;
-	auto match_color_index = -1;
-
-	for (auto i = 0; i < 256; ++i)
-	{
-		if (i == color_index)
-		{
-			continue;
-		}
-
-		const auto match_palette_index = i * 3;
-
-		const auto match_r = vgapal[match_palette_index + 0];
-		const auto match_g = vgapal[match_palette_index + 1];
-		const auto match_b = vgapal[match_palette_index + 2];
-
-		const auto match_weight = weight_color(match_r, match_g, match_b);
-		const auto match_abs_weight_diff = std::abs(match_weight - src_weight);
-
-		if (match_abs_weight_diff > max_match_abs_weight_diff)
-		{
-			max_match_abs_weight_diff = match_abs_weight_diff;
-			match_color_index = i;
-		}
-	}
-
-	if (match_color_index < 0)
-	{
-		match_color_index = color_index + 128;
-
-		if (match_color_index > 255)
-		{
-			match_color_index -= 255;
-		}
-	}
-
-	return match_color_index;
-}
-
-void draw_filler_color_cell(
-	int color_index,
-	bool is_highlighted)
-{
-	const auto cell_x = color_index % 16;
-	const auto cell_y = color_index / 16;
-
-	const auto x = filler_cells_x + (cell_x * filler_cell_width);
-	const auto y = filler_cells_y + (cell_y * filler_cell_height);
-
-	VL_Bar(x, y, filler_cell_width, filler_cell_height, static_cast<std::uint8_t>(color_index));
-
-	if (is_highlighted)
-	{
-		const auto highlighted_color_index = find_highlight_filler_color_index(color_index);
-
-		vwb_rect(x, y, filler_cell_width, filler_cell_height, highlighted_color_index);
-	}
-}
-
-void filler_color_routine(
-	const std::int16_t)
-{
-	VL_SetPalette(0, 256, vgapal);
-	draw_filler_color_menu();
-	MenuFadeIn();
-	WaitKeyUp();
-
-	ControlInfo ci;
-
-	auto is_highlighted = false;
-	auto highlight_counter = 0;
-
-	auto is_cell_changed = true;
-	auto cell_x = vid_cfg_get_filler_color_index() % 16;
-	auto cell_y = vid_cfg_get_filler_color_index() / 16;
-
-	while (true)
-	{
-		CalcTics();
-		ReadAnyControl(&ci);
-
-		switch (ci.dir)
-		{
-			case dir_North:
-				is_cell_changed = true;
-				cell_y -= 1;
-				break;
-
-			case dir_South:
-				is_cell_changed = true;
-				cell_y += 1;
-				break;
-
-			case dir_West:
-				is_cell_changed = true;
-				cell_x -= 1;
-				break;
-
-			case dir_East:
-				is_cell_changed = true;
-				cell_x += 1;
-				break;
-
-			default:
-				break;
-		}
-
-		if (is_cell_changed)
-		{
-			is_cell_changed = false;
-
-			is_highlighted = true;
-
-			draw_filler_color_cell(vid_cfg_get_filler_color_index(), false);
-
-			if (cell_x < 0)
-			{
-				cell_x = 15;
-			}
-			else if (cell_x > 15)
-			{
-				cell_x = 0;
-			}
-
-			if (cell_y < 0)
-			{
-				cell_y = 15;
-			}
-			else if (cell_y > 15)
-			{
-				cell_y = 0;
-			}
-
-			vid_cfg_set_filler_color_index((cell_y * 16) + cell_x);
-
-			IN_ClearKeysDown();
-
-			vid_apply_filler_color();
-		}
-
-		if (ci.button1 || Keyboard[ScanCode::sc_escape])
-		{
-			break;
-		}
-
-		draw_filler_color_cell(vid_cfg_get_filler_color_index(), is_highlighted);
-
-		VW_UpdateScreen();
-
-		highlight_counter += 1;
-
-		if (highlight_counter > 10)
-		{
-			highlight_counter = 0;
-			is_highlighted = !is_highlighted;
-		}
-	}
-
-	MenuFadeOut();
-}
-
-///
-
-
 void MenuFadeOut()
 {
 	const auto& assets_info = get_assets_info();

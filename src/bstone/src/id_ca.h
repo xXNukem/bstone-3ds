@@ -402,28 +402,13 @@ std::string ca_calculate_hash(
 
 void ca_calculate_hashes();
 
-void ca_extract_vga_palette(
-	const std::string& destination_dir);
 
-void ca_extract_walls(
-	const std::string& destination_dir);
 
-void ca_extract_sprites(
-	const std::string& destination_dir);
 
-void ca_extract_music(
-	const std::string& destination_dir);
 
-void ca_extract_sfx(
-	const std::string& destination_dir);
 
-void ca_extract_texts(
-	const std::string& destination_dir);
 
-void ca_extract_levels(const std::string& destination_dir);
 
-void ca_extract_all(
-	const std::string& destination_dir);
 
 
 void ca_make_resource_path(const std::string& resource_name,

@@ -7,11 +7,7 @@ SPDX-License-Identifier: MIT
 
 #include "bstone_time.h"
 
-#if _WIN32
-#include <windows.h>
-#else
 #include <time.h>
-#endif // _WIN32
 
 #include <string>
 
@@ -25,22 +21,6 @@ namespace bstone
 
 DateTime make_local_date_time()
 try {
-#if _WIN32
-	SYSTEMTIME win32_date_time;
-
-	GetLocalTime(&win32_date_time);
-
-	auto date_time = DateTime{};
-	date_time.year = win32_date_time.wYear;
-	date_time.month = win32_date_time.wMonth;
-	date_time.day = win32_date_time.wDay;
-	date_time.hours = win32_date_time.wHour;
-	date_time.minutes = win32_date_time.wMinute;
-	date_time.seconds = win32_date_time.wSecond;
-	date_time.milliseconds = win32_date_time.wMilliseconds;
-
-	return date_time;
-#else
 	struct ::timespec posix_tp;
 
 	const auto clock_gettime_result = ::clock_gettime(CLOCK_REALTIME, &posix_tp);
@@ -71,7 +51,6 @@ try {
 	date_time.milliseconds = milliseconds;
 
 	return date_time;
-#endif // _WIN32
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 // YYYYMMDD_hhmmss_sss

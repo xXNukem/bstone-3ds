@@ -29,7 +29,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_assert.h"
 #include "bstone_char_conv.h"
 #include "bstone_endian.h"
-#include "bstone_entry_point.h"
 #include "bstone_exception.h"
 #include "bstone_exception_utils.h"
 #include "bstone_four_cc.h"
@@ -39,13 +38,11 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_logger.h"
 #include "bstone_math.h"
 #include "bstone_memory_stream.h"
-#include "bstone_process.h"
 #include "bstone_ps_fizzle_fx.h"
 #include "bstone_saved_game.h"
 #include "bstone_scope_exit.h"
 #include "bstone_sha1.h"
 #include "bstone_sys_message_box.h"
-#include "bstone_sys_special_path.h"
 #include "bstone_static_ro_memory_stream.h"
 #include "bstone_string_helper.h"
 #include "bstone_text_reader.h"
@@ -159,7 +156,6 @@ std::int16_t starting_episode;
 std::int16_t starting_level;
 std::int16_t starting_difficulty;
 
-bool is_data_dir_custom_ = false;
 std::string data_dir_;
 std::string mod_dir_;
 
@@ -8166,7 +8162,6 @@ bool LoadLevel(
 			AlignPlayerInElevator();
 		}
 
-		vid_hw_on_load_level();
 
 		gamestate.turn_around = 0;
 
@@ -8479,7 +8474,6 @@ bool LoadLevel(
 			}
 		}
 
-		vid_hw_on_load_level();
 	}
 	else
 	{
@@ -9953,17 +9947,12 @@ void DrawCreditsPage()
 }
 
 
-int main(
-    int argc,
-    char* argv[])
+int main()
 {
-#if defined(__3DS__) || defined(_3DS)
     // Enable New 3DS higher CPU clock and L2 cache.
     osSetSpeedupEnable(true);
-#endif
 
 
-#if defined(__3DS__) || defined(_3DS)
 
     char args_3ds[][32] =
     {
@@ -9971,14 +9960,10 @@ int main(
         "--aog",
         "--data_dir", "sdmc:/3ds/bstone/",
         "--profile_dir", "sdmc:/3ds/bstone/",
-        "--vid_renderer", "software",
-        "--vid_width", "400",
-        "--vid_height", "240",
         "--snd_is_disabled", "0",
 		"--snd_driver", "system",
 		"--snd_mix_size", "80",
 		"--snd_rate", "22050",
-		"--vid_is_vsync", "0",
 		"--vid_is_ui_stretched", "1",
     };
 
@@ -9990,9 +9975,6 @@ int main(
 
     g_args.initialize(count, argv_3ds);
 
-#else
-    g_args.initialize(argc, argv);
-#endif
 
 
 	const auto opt_is_log_sync = g_args.has_option("log_sync");
@@ -10059,15 +10041,6 @@ int main(
 
 		bstone::globals::sys_system_mgr = bstone::sys::make_system_mgr(sys_logger);
 
-		bstone::globals::sys_video_mgr = &bstone::globals::sys_system_mgr->get_video_mgr();
-
-		if (!bstone::globals::sys_video_mgr->is_initialized())
-		{
-			BSTONE_THROW_STATIC_SOURCE("No video subsystem.");
-		}
-
-		bstone::globals::sys_window_mgr = &bstone::globals::sys_video_mgr->get_window_mgr();
-
 		freed_main();
 
 		DemoLoop();
@@ -10083,9 +10056,6 @@ int main(
 
 	pre_quit();
 
-	bstone::globals::sys_mouse_mgr = nullptr;
-	bstone::globals::sys_window_mgr = nullptr;
-	bstone::globals::sys_video_mgr = nullptr;
 	bstone::globals::sys_event_mgr = nullptr;
 	bstone::globals::sys_system_mgr = nullptr;
 
@@ -10094,57 +10064,12 @@ int main(
 		bstone::globals::logger->log_error(error_message.c_str());
 		bstone::globals::logger->flush();
 
-		const auto has_log_file = bstone::fs::is_regular_file_exists(log_file_path.c_str());
-
 		try
 		{
-			if (has_log_file)
-			{
-				constexpr auto ok_button_id = 1;
-				auto ok_button = bstone::sys::MessageBoxButton{};
-				{
-					ok_button.id = ok_button_id;
-
-					ok_button.flags =
-						bstone::sys::MessageBoxButtonFlags::default_for_escape_key |
-							bstone::sys::MessageBoxButtonFlags::default_for_return_key;
-
-					ok_button.text = "OK";
-				}
-
-				constexpr auto view_log_button_id = 2;
-				auto view_log_button = bstone::sys::MessageBoxButton{};
-				{
-					view_log_button.id = view_log_button_id;
-					view_log_button.text = "View log";
-				}
-
-				const bstone::sys::MessageBoxButton buttons[] =
-				{
-					ok_button,
-					view_log_button,
-				};
-
-				auto message_box_param = bstone::sys::MessageBoxInitParam{};
-				message_box_param.title = get_message_box_title().c_str();
-				message_box_param.message = error_message.c_str();
-				message_box_param.type = bstone::sys::MessageBoxType::error;
-				message_box_param.buttons = bstone::make_span(buttons);
-
-				const auto button_id = bstone::sys::MessageBox::show(message_box_param);
-
-				if (button_id == 2)
-				{
-					bstone::process::open_file_or_url(logger_open_param.file_path);
-				}
-			}
-			else
-			{
-				bstone::sys::MessageBox::show_simple(
-					get_message_box_title().c_str(),
-					error_message.c_str(),
-					bstone::sys::MessageBoxType::error);
-			}
+			bstone::sys::MessageBox::show_simple(
+				get_message_box_title().c_str(),
+				error_message.c_str(),
+				bstone::sys::MessageBoxType::error);
 		}
 		catch (...)
 		{
@@ -10168,7 +10093,6 @@ void InitDestPath()
 	}
 	else
 	{
-		is_data_dir_custom_ = true;
 		data_dir_.assign(requested_data_dir.cbegin(), requested_data_dir.cend());
 	}
 
@@ -10812,22 +10736,8 @@ const std::string& get_profile_dir()
 
 		if (profile_dir.empty())
 		{
-			constexpr auto buffer_size = 4096;
-			profile_dir.clear();
-			profile_dir.resize(buffer_size);
-
-			const auto path_size = bstone::sys::SpecialPath::get_user_specific_data_path(
-				"bibendovsky",
-				"bstone",
-				&profile_dir.front(),
-				buffer_size);
-
-			profile_dir.resize(static_cast<std::size_t>(path_size));
+			profile_dir = get_default_data_dir();
 		}
-
-// FIXME
-#if 0
-#endif
 
 		profile_dir = bstone::fs_utils::append_path_separator(profile_dir);
 	}
@@ -10858,17 +10768,7 @@ const std::string& get_screenshot_dir()
 
 const std::string& get_default_data_dir()
 {
-	static std::string result;
-	static auto is_initialized = false;
-
-	if (!is_initialized)
-	{
-		is_initialized = true;
-
-		result = bstone::fs_utils::get_working_dir();
-
-	}
-
+	static const auto result = std::string{"sdmc:/3ds/bstone/"};
 	return result;
 }
 

@@ -1027,7 +1027,6 @@ void KillActor(
 			auto bs_static = ui16_to_static_object(ob->temp3);
 
 			bs_static->shapenum = -1;
-			vid_hw_on_remove_static(*bs_static);
 
 			static_cast<void>(SpawnStatic(tilex, tiley, ob->temp2));
 		}
@@ -2469,7 +2468,6 @@ bool LookForGoodies(
 
 						if (statptr->shapenum == -1)
 						{
-							vid_hw_on_remove_static(*statptr);
 						}
 
 						return true;

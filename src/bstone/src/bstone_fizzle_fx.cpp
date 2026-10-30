@@ -39,8 +39,6 @@ bool FizzleFX::present()
 {
 	if (!has_vanilla_appearence() && !is_vanilla_only())
 	{
-		vid_hw_enable_fizzle_fx(true);
-		vid_hw_set_fizzle_fx_ratio(0.0F);
 	}
 
 	const auto y_offset = get_y();
@@ -87,7 +85,6 @@ bool FizzleFX::present()
 				{
 					const auto ratio = static_cast<float>(frame) / static_cast<float>(frame_count);
 
-					vid_hw_set_fizzle_fx_ratio(ratio);
 				}
 			}
 			else
@@ -136,7 +133,6 @@ bool FizzleFX::present()
 
 	if (!has_vanilla_appearence() && !is_vanilla_only())
 	{
-		vid_hw_enable_fizzle_fx(false);
 	}
 
 	return is_aborted;

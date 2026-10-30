@@ -722,7 +722,6 @@ void ExplodeStatics(
 					spot->shapenum = -1;
 					spot->itemnumber = bo_nothing;
 
-					vid_hw_on_remove_static(*spot);
 				}
 			}
 		}
@@ -938,7 +937,6 @@ void CheckLinkedDoors(
 			doorobjlist[door_index].lock = kt_none;
 			OpenDoor(door_index);
 
-			vid_hw_on_update_door_lock(door_index);
 
 			break;
 
@@ -946,7 +944,6 @@ void CheckLinkedDoors(
 			doorobjlist[door_index].lock = kt_none;
 			CloseDoor(door_index);
 
-			vid_hw_on_update_door_lock(door_index);
 
 			break;
 		}
@@ -1265,7 +1262,6 @@ void OperateDoor(
 			DISPLAY_TIMED_MSG(od_granted, MP_DOOR_OPERATE, MT_GENERAL);
 			doorobjlist[door].lock = kt_none;                           // UnLock door
 
-			vid_hw_on_update_door_lock(door);
 		}
 	}
 	else
@@ -1302,8 +1298,6 @@ void BlockDoorOpen(
 
 	TransformAreas(doorobjlist[door].tilex, doorobjlist[door].tiley, 1);
 
-	vid_hw_on_move_door(door);
-	vid_hw_on_update_door_lock(door);
 }
 
 void TryBlastDoor(
@@ -1553,7 +1547,6 @@ void DoorOpening(
 
 	doorposition[door] = position;
 
-	vid_hw_on_move_door(door);
 }
 
 void DoorClosing(
@@ -1586,7 +1579,6 @@ void DoorClosing(
 
 	doorposition[door] = position;
 
-	vid_hw_on_move_door(door);
 }
 
 /*
@@ -1815,7 +1807,6 @@ void MovePWalls()
 			pwallx += static_cast<std::uint16_t>(next_dx);
 			pwally += static_cast<std::uint16_t>(next_dy);
 
-			vid_hw_on_step_pushwall(old_x, old_y);
 
 			pwallpos = pwall_pos_end;
 
@@ -1826,7 +1817,6 @@ void MovePWalls()
 			pwallx += static_cast<std::uint16_t>(next_dx);
 			pwally += static_cast<std::uint16_t>(next_dy);
 
-			vid_hw_on_step_pushwall(old_x, old_y);
 
 			const auto next_x = pwallx + next_dx;
 			const auto next_y = pwally + next_dy;
@@ -1838,14 +1828,7 @@ void MovePWalls()
 				pwallstate = 0.0;
 				pwallpos = pwall_pos_end;
 
-				vid_hw_on_step_pushwall(pwallx, pwally);
 
-				vid_hw_on_pushwall_to_wall(
-					pwallx,
-					pwally,
-					pwallx,
-					pwally
-				);
 
 				return;
 			}
@@ -1859,7 +1842,6 @@ void MovePWalls()
 
 	pwallpos = get_fractional(0.5 * pwallstate);
 
-	vid_hw_on_move_pushwall();
 }
 
 // ==========================================================================

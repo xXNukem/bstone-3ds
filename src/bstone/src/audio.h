@@ -180,7 +180,6 @@ enum class AudioDriverType
 {
 	auto_detect,
 	system,
-	openal,
 }; // AudioDriverType
 
 enum class AudioSfxType

@@ -16,9 +16,6 @@ PageMgrUPtr page_mgr{};
 
 sys::SystemMgrUPtr sys_system_mgr{};
 sys::EventMgr* sys_event_mgr{};
-sys::VideoMgr* sys_video_mgr{};
-sys::MouseMgr* sys_mouse_mgr{};
-sys::WindowMgr* sys_window_mgr{};
 
 LoggerUPtr logger{};
 

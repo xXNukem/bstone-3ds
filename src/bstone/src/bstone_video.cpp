@@ -5,11 +5,9 @@ Copyright (c) 2013-2024 Boris I. Bendovsky (bibendovsky@hotmail.com) and Contrib
 SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-
 //
-// Accelerated video (interface).
+// Native Nintendo 3DS software-video interface.
 //
-
 
 #include "bstone_video.h"
 

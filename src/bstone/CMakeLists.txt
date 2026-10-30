@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
 project(bstone VERSION 1.3.4 LANGUAGES CXX)
 
 #
@@ -23,268 +22,70 @@ endif ()
 
 message(STATUS "[bstone] v${BSTONE_VERSION}")
 
-#
-# Options.
-#
-option(BSTONE_USE_STATIC_LINKING "Link build statically." OFF)
-option(BSTONE_USE_PCH "Use precompiled headers if available." OFF)
-option(BSTONE_USE_MULTI_PROCESS_COMPILATION "Use multi-process compilation." ON)
-option(BSTONE_MORE_COMPILER_WARNINGS "Enables more compiler warnings." OFF)
-option(BSTONE_NO_ASSERT "Disable assertion." OFF)
-option(BSTONE_VULKAN_COMPILE_SHADERS "Compile Vulkan shaders before each build. Requires Vulkan SDK or 'glslangValidator' application available in the PATH environment variable. Useful for development." OFF)
-option(BSTONE_VULKAN_COMPILE_SHADERS_DEBUG_BUILD "Compile Vulkan shaders with debug information and without link time optimization." OFF)
-
-# SDL2W
-#
-set(BSTONE_SDL_COMPONENTS "")
-
-if (NOT BSTONE_INTERNAL_SDL2)
-	if (BSTONE_USE_STATIC_LINKING)
-		set(BSTONE_SDL_COMPONENTS "${BSTONE_SDL_COMPONENTS};static")
-	endif ()
-
-	find_package(SDL2W 2.0.4 REQUIRED COMPONENTS ${BSTONE_SDL_COMPONENTS})
+# SDL2 must be a Nintendo 3DS installation. Use SDL2_DIR or
+# CMAKE_PREFIX_PATH for an installation outside devkitPro's portlibs.
+find_package(SDL2 2.0.4 CONFIG REQUIRED)
+if (NOT TARGET SDL2::SDL2-static)
+    message(FATAL_ERROR "A static Nintendo 3DS SDL2 installation is required (SDL2::SDL2-static).")
 endif ()
 
-# Threads
-#
-set(THREADS_PREFER_PTHREAD_FLAG "TRUE")
-
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
-#
-# Constants.
-#
-if (MSVC)
-	set (BSTONE_MSVC "1")
-else ()
-	set (BSTONE_MSVC "0")
-endif ()
+# Search only within the cross-compilation roots supplied by devkitPro.
+find_path(BSTONE_CTRU_INCLUDE_DIR 3ds.h REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
+find_path(BSTONE_CITRO2D_INCLUDE_DIR citro2d.h REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
+find_path(BSTONE_CITRO3D_INCLUDE_DIR citro3d.h REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
+find_library(BSTONE_CTRU_LIBRARY ctru REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
+find_library(BSTONE_CITRO2D_LIBRARY citro2d REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
+find_library(BSTONE_CITRO3D_LIBRARY citro3d REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
 
-#
-# Custom target.
-#
-if(BSTONE_VULKAN_COMPILE_SHADERS)
-	set(bstone_vulkan_shaders_rel_path src/resources/vulkan/src)
-	set(bstone_vulkan_shaders_source_dir ${CMAKE_CURRENT_SOURCE_DIR}/${bstone_vulkan_shaders_rel_path})
-	set(bstone_vulkan_shaders_output_dir ${CMAKE_CURRENT_BINARY_DIR}/${bstone_vulkan_shaders_rel_path})
-if(BSTONE_VULKAN_COMPILE_SHADERS_DEBUG_BUILD)
-	set(bstone_vulkan_shaders_options "-g")
-else()
-	set(bstone_vulkan_shaders_options "-g0 --lto")
-endif()
-	file(MAKE_DIRECTORY ${bstone_vulkan_shaders_output_dir})
+add_executable(bstone)
 
-	add_custom_target(bstone_vulkan_compile_shaders
-		COMMAND glslangValidator
-			-S vert -V100 -e main ${bstone_vulkan_shaders_options}
-			-o ${bstone_vulkan_shaders_output_dir}/default_vert.spv
-			${bstone_vulkan_shaders_source_dir}/default_vert.txt
-		COMMAND glslangValidator
-			-S frag -V100 -e main ${bstone_vulkan_shaders_options}
-			-o ${bstone_vulkan_shaders_output_dir}/default_frag.spv
-			${bstone_vulkan_shaders_source_dir}/default_frag.txt
-		COMMAND bstone_bin2c
-			-aa "alignas(std::uint32_t)"
-			-aa static
-			-i ${bstone_vulkan_shaders_output_dir}/default_vert.spv
-			-o ${bstone_vulkan_shaders_output_dir}/default_vert.spv.h
-		COMMAND bstone_bin2c
-			-aa "alignas(std::uint32_t)"
-			-aa static
-			-i ${bstone_vulkan_shaders_output_dir}/default_frag.spv
-			-o ${bstone_vulkan_shaders_output_dir}/default_frag.spv.h
-		VERBATIM
-		SOURCES
-			${bstone_vulkan_shaders_source_dir}/default_vert.txt
-			${bstone_vulkan_shaders_source_dir}/default_frag.txt
-	)
-
-	add_dependencies(bstone_vulkan_compile_shaders bstone_bin2c)
-	install(FILES
-		${bstone_vulkan_shaders_source_dir}/default_vert.txt
-		${bstone_vulkan_shaders_source_dir}/default_frag.txt
-		DESTINATION bstone_vulkan/src)
-	install(FILES
-		${bstone_vulkan_shaders_output_dir}/default_vert.spv
-		${bstone_vulkan_shaders_output_dir}/default_vert.spv.h
-		${bstone_vulkan_shaders_output_dir}/default_frag.spv
-		${bstone_vulkan_shaders_output_dir}/default_frag.spv.h
-		DESTINATION bstone_vulkan/bin)
-endif()
-
-#
-# Target.
-#
-add_executable(bstone "")
-
-if(BSTONE_VULKAN_COMPILE_SHADERS)
-	add_dependencies(bstone bstone_vulkan_compile_shaders)
-endif()
-
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
-    add_custom_command(
-        TARGET bstone POST_BUILD
-        COMMAND $<$<CONFIG:RELEASE>:${CMAKE_STRIP}> $<$<CONFIG:RELEASE>:$<TARGET_FILE:bstone>>
-        VERBATIM
-    )
-endif()
-
-if (BSTONE_TRIM_FILE_PATHS_IN_EXE)
-	add_dependencies(bstone bstone_ltrimcs)
-
-	add_custom_command(
-		TARGET bstone POST_BUILD
-		COMMAND
-			$<TARGET_FILE:bstone_ltrimcs>
-				-f $<SHELL_PATH:$<TARGET_FILE:bstone>>
-				-p $<SHELL_PATH:${PROJECT_SOURCE_DIR}/src>
-		VERBATIM
-	)
-endif ()
-
-#
-# Configure files.
-#
 configure_file(
-	"${PROJECT_SOURCE_DIR}/src/bstone_version_.h.in"
-	"${PROJECT_BINARY_DIR}/src/bstone_version_.h"
+    "${PROJECT_SOURCE_DIR}/src/bstone_version_.h.in"
+    "${PROJECT_BINARY_DIR}/src/bstone_version_.h"
 )
 
-if (WIN32)
-	configure_file(
-		"${PROJECT_SOURCE_DIR}/src/resources/win32/bstone_win32.rc.in"
-		"${PROJECT_BINARY_DIR}/src/resources/win32/bstone_win32.rc"
-	)
-endif ()
-
-#
-# Target properties.
-#
 set_target_properties(bstone PROPERTIES
-	CXX_STANDARD 14
-	CXX_STANDARD_REQUIRED ON
-	CXX_EXTENSIONS OFF
+    CXX_STANDARD 14
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
 )
 
-if (WIN32)
-	set_target_properties(bstone PROPERTIES
-		WIN32_EXECUTABLE TRUE
-	)
-endif ()
-
-#
-# Target compile definitions.
-#
-target_compile_definitions(bstone
-	PRIVATE
-		$<$<BOOL:${WIN32}>:UNICODE>
-		$<$<BOOL:${WIN32}>:_UNICODE>
-		$<$<BOOL:${WIN32}>:_CRT_SECURE_NO_WARNINGS>
-		$<$<BOOL:${WIN32}>:_SCL_SECURE_NO_WARNINGS>
-		$<$<BOOL:${WIN32}>:_BIND_TO_CURRENT_VCLIBS_VERSION=1>
-		$<$<BOOL:${WIN32}>:NTDDI_VERSION=0x05010000>
-		$<$<BOOL:${WIN32}>:_WIN32_WINNT=0x0501>
-		$<$<BOOL:${WIN32}>:WINVER=0x0501>
-		$<$<BOOL:${BSTONE_NO_ASSERT}>:BSTONE_NO_ASSERT>
-		$<$<BOOL:${BSTONE_VULKAN_COMPILE_SHADERS}>:BSTONE_VULKAN_COMPILE_SHADERS>
+target_compile_definitions(bstone PRIVATE
+    $<$<BOOL:${BSTONE_NO_ASSERT}>:BSTONE_NO_ASSERT>
 )
 
+# A missing return in a non-void function can compile to an ARM UDF trap.
+target_compile_options(bstone PRIVATE -Werror=return-type)
 
-#
-# Target compile options.
-#
 if (BSTONE_MORE_COMPILER_WARNINGS)
-	target_compile_options(bstone
-		PRIVATE
-			$<$<CXX_COMPILER_ID:MSVC>:/W4>
-			$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
-	)
+    target_compile_options(bstone PRIVATE -Wall -Wextra -pedantic)
 endif ()
 
-if (MSVC)
-	if (BSTONE_USE_STATIC_LINKING)
-		target_compile_options(bstone
-			PRIVATE
-				$<$<CONFIG:DEBUG>:-MTd>
-				$<$<NOT:$<CONFIG:DEBUG>>:-MT>
-		)
-	endif ()
-
-	if (BSTONE_USE_MULTI_PROCESS_COMPILATION)
-		target_compile_options(bstone
-			PRIVATE
-				-MP
-		)
-	endif ()
-endif ()
-
-
-#
-# Target link options.
-#
-if (MSVC)
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -DEBUG:FULL")
-endif ()
-
-#
-# Target link libraries.
-#
-if (BSTONE_USE_STATIC_LINKING)
-	if (WIN32)
-		target_link_libraries(bstone
-			PRIVATE
-				$<$<CXX_COMPILER_ID:Clang>:-static>
-				$<$<CXX_COMPILER_ID:GNU>:-static>
-		)
-	else ()
-		target_link_libraries(bstone
-			PRIVATE
-				$<$<CXX_COMPILER_ID:Clang>:-static>
-				$<$<CXX_COMPILER_ID:GNU>:-static-libgcc>
-				$<$<CXX_COMPILER_ID:GNU>:-static-libstdc++>
-		)
-	endif ()
-endif ()
-
-if (CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
-    set(BSTONE_DL_LIBS "")
-else()
-    set(BSTONE_DL_LIBS "${CMAKE_DL_LIBS}")
-endif()
-
-target_link_libraries(bstone
-	PRIVATE
-		${BSTONE_DL_LIBS}
-		$<$<BOOL:${BSTONE_INTERNAL_SDL2}>:SDL2::SDL2-static>
-		$<$<NOT:$<BOOL:${BSTONE_INTERNAL_SDL2}>>:SDL2W::SDL2W>
-		$<$<BOOL:${WIN32}>:wbemuuid>
-		Threads::Threads
-		bstone::lib::khronos
-		bstone::lib::nuked_opl3
-		bstone::lib::openal_soft
-		bstone::lib::stb
+target_link_libraries(bstone PRIVATE
+    Threads::Threads
+    bstone::lib::nuked_opl3
+    bstone::lib::stb
+    SDL2::SDL2-static
+    ${BSTONE_CITRO2D_LIBRARY}
+    ${BSTONE_CITRO3D_LIBRARY}
+    ${BSTONE_CTRU_LIBRARY}
+    m
 )
 
-
-#
-# Target include directories.
-#
-target_include_directories(bstone
-	PRIVATE
-		src
-		src/dosbox
-		src/resources/win32
-		${PROJECT_BINARY_DIR}/src
-		$<$<BOOL:${BSTONE_VULKAN_COMPILE_SHADERS}>:${bstone_vulkan_shaders_output_dir}>
+target_include_directories(bstone PRIVATE
+    src
+    src/dosbox
+    "${PROJECT_BINARY_DIR}/src"
+    "${BSTONE_CTRU_INCLUDE_DIR}"
+    "${BSTONE_CITRO2D_INCLUDE_DIR}"
+    "${BSTONE_CITRO3D_INCLUDE_DIR}"
 )
 
-
-if (BSTONE_USE_PCH AND NOT (${CMAKE_VERSION} VERSION_LESS "3.16.0"))
-	target_precompile_headers(bstone
-		PRIVATE
-			src/bstone_precompiled.h
-	)
+if (BSTONE_USE_PCH)
+    target_precompile_headers(bstone PRIVATE src/bstone_precompiled.h)
 endif ()
 
 # ===========================================================================
@@ -337,7 +138,6 @@ set(BSTONE_LEGACY_SOURCES
 	src/markhack.cpp
 	src/movie.cpp
 	src/movie.h
-	src/scale.cpp
 	src/stub.cpp
 	src/vgapal.cpp
 )
@@ -366,43 +166,21 @@ source_group("lib/dosbox" FILES ${BSTONE_LIB_DOSBOX_SOURCES})
 # ---------------------------------------------------------------------------
 
 set(BSTONE_LIB_MISC_SOURCES
-	src/bstone_algorithm.cpp
 	src/bstone_algorithm.h
-	src/bstone_api_string.cpp
 	src/bstone_api_string.h
-	src/bstone_array.cpp
 	src/bstone_array.h
-	src/bstone_ascii.cpp
 	src/bstone_ascii.h
-	src/bstone_assert.cpp
 	src/bstone_assert.h
 	src/bstone_auto_arena_resource.cpp
 	src/bstone_auto_arena_resource.h
-	src/bstone_binary_reader.cpp
-	src/bstone_binary_reader.h
-	src/bstone_binary_writer.cpp
-	src/bstone_binary_writer.h
-	src/bstone_cgm_clip_space.cpp
-	src/bstone_cgm_clip_space.h
-	src/bstone_cgm_mat.cpp
-	src/bstone_cgm_mat.h
-	src/bstone_cgm_transform.cpp
-	src/bstone_cgm_transform.h
-	src/bstone_cgm_vec.cpp
-	src/bstone_cgm_vec.h
 	src/bstone_char_conv.cpp
 	src/bstone_char_conv.h
-	src/bstone_char_traits.cpp
 	src/bstone_char_traits.h
 	src/bstone_configurations.h
 	src/bstone_crc32.cpp
 	src/bstone_crc32.h
-	src/bstone_cxx.cpp
 	src/bstone_cxx.h
-	src/bstone_endian.cpp
 	src/bstone_endian.h
-	src/bstone_entry_point.cpp
-	src/bstone_entry_point.h
 	src/bstone_enum_flags.h
 	src/bstone_exception.cpp
 	src/bstone_exception.h
@@ -411,125 +189,37 @@ set(BSTONE_LIB_MISC_SOURCES
 	src/bstone_file_posix.cpp
 	src/bstone_file_stream.cpp
 	src/bstone_file_stream.h
-	src/bstone_fixed_pool_resource.cpp
-	src/bstone_fixed_pool_resource.h
-	src/bstone_four_cc.cpp
 	src/bstone_four_cc.h
-	src/bstone_fs.cpp
 	src/bstone_fs.h
 	src/bstone_fs_posix.cpp
-	src/bstone_generic_pool_resource.cpp
-	src/bstone_generic_pool_resource.h
-	src/bstone_memory.cpp
 	src/bstone_memory.h
 	src/bstone_memory_binary_reader.cpp
 	src/bstone_memory_binary_reader.h
-	src/bstone_memory_pool_bitmap.cpp
-	src/bstone_memory_pool_bitmap.h
 	src/bstone_memory_resource.cpp
 	src/bstone_memory_resource.h
 	src/bstone_memory_stream.cpp
 	src/bstone_memory_stream.h
-	src/bstone_platform.h
 	src/bstone_posix_string.cpp
 	src/bstone_posix_string.h
-	src/bstone_scope_exit.cpp
 	src/bstone_scope_exit.h
 	src/bstone_sha1.cpp
 	src/bstone_sha1.h
-	src/bstone_shared_library.cpp
-	src/bstone_shared_library.h
-	src/bstone_shared_library_posix.cpp
-	src/bstone_single_pool_resource.cpp
 	src/bstone_single_pool_resource.h
 	src/bstone_source_location.cpp
 	src/bstone_source_location.h
-	src/bstone_span.cpp
 	src/bstone_span.h
-	src/bstone_static_memory_stream.cpp
-	src/bstone_static_memory_stream.h
 	src/bstone_static_ro_memory_stream.cpp
 	src/bstone_static_ro_memory_stream.h
 	src/bstone_stream.cpp
 	src/bstone_stream.h
-	src/bstone_string.cpp
-	src/bstone_string.h
-	src/bstone_string_view.cpp
-	src/bstone_string_view.cpp
 	src/bstone_string_view.h
-	src/bstone_string_view.h
-	src/bstone_sys_special_path.cpp
-	src/bstone_sys_special_path.h
-	src/bstone_sys_special_path_sdl2.cpp
 	src/bstone_ts_auto_arena_resource.cpp
 	src/bstone_ts_auto_arena_resource.h
-	src/bstone_type_traits.h
-	src/bstone_unicode.cpp
-	src/bstone_unicode.h
-	src/bstone_unique_resource.cpp
-	src/bstone_unique_resource.h
-	src/bstone_utf.cpp
-	src/bstone_utf.h
-	src/bstone_utf16.cpp
-	src/bstone_utf16.h
-	src/bstone_utf8.cpp
-	src/bstone_utf8.h
-	src/bstone_utility.cpp
 	src/bstone_utility.h
-	src/bstone_uuid.cpp
-	src/bstone_uuid.h
-	src/bstone_uuid_unix.cpp
-	src/bstone_zstring_view.cpp
-	src/bstone_zstring_view.h
-	src/bstone_process.h
-	src/bstone_process_posix.cpp
 )
 
 target_sources(bstone PRIVATE ${BSTONE_LIB_MISC_SOURCES})
 source_group("lib/misc" FILES ${BSTONE_LIB_MISC_SOURCES})
-
-# ---------------------------------------------------------------------------
-
-set(BSTONE_BSTONE_RENDERER_SOURCES
-	src/bstone_missing_sprite_64x64_image.cpp
-	src/bstone_missing_sprite_64x64_image.h
-	src/bstone_missing_wall_64x64_image.cpp
-	src/bstone_missing_wall_64x64_image.h
-	src/bstone_renderer_type.h
-)
-
-target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_SOURCES})
-source_group("bstone/renderer" FILES ${BSTONE_BSTONE_RENDERER_SOURCES})
-
-# ---------------------------------------------------------------------------
-
-set(BSTONE_BSTONE_RENDERER_3D_SOURCES
-)
-
-target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_SOURCES})
-source_group("bstone/renderer/3d" FILES ${BSTONE_BSTONE_RENDERER_3D_SOURCES})
-
-# ---------------------------------------------------------------------------
-
-set(BSTONE_BSTONE_RENDERER_3D_NULL_SOURCES
-)
-
-target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_NULL_SOURCES})
-source_group("bstone/renderer/3d/null" FILES ${BSTONE_BSTONE_RENDERER_3D_NULL_SOURCES})
-
-# ---------------------------------------------------------------------------
-
-
-
-set(BSTONE_BSTONE_RENDERER_3D_VK_SHADER_SOURCES
-	src/resources/vulkan/src/default_frag.txt
-	src/resources/vulkan/src/default_vert.txt
-)
-
-if (NOT CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
-    target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_VK_SHADER_SOURCES})
-endif ()
-source_group("bstone/renderer/3d/vk/shaders" FILES ${BSTONE_BSTONE_RENDERER_3D_VK_SHADER_SOURCES})
 
 # ---------------------------------------------------------------------------
 
@@ -538,63 +228,20 @@ set(BSTONE_BSTONE_SYS_SOURCES
 	src/bstone_sys_audio_mgr.h
 	src/bstone_sys_audio_mgr_null.cpp
 	src/bstone_sys_audio_mgr_null.h
-	src/bstone_sys_color.cpp
-	src/bstone_sys_color.h
-	src/bstone_sys_display_mode.cpp
-	src/bstone_sys_display_mode.h
-	src/bstone_sys_event.cpp
 	src/bstone_sys_event.h
 	src/bstone_sys_event_mgr.cpp
 	src/bstone_sys_event_mgr.h
 	src/bstone_sys_event_mgr_null.cpp
 	src/bstone_sys_event_mgr_null.h
-	src/bstone_sys_gl_context.cpp
-	src/bstone_sys_gl_context.h
-	src/bstone_sys_gl_context_attributes.h
-	src/bstone_sys_gl_context_profile.cpp
-	src/bstone_sys_gl_context_profile.h
-	src/bstone_sys_gl_current_context.cpp
-	src/bstone_sys_gl_current_context.h
-	src/bstone_sys_gl_symbol_resolver.cpp
-	src/bstone_sys_gl_symbol_resolver.h
-	src/bstone_sys_keyboard_key.cpp
 	src/bstone_sys_keyboard_key.h
 	src/bstone_sys_logger.cpp
 	src/bstone_sys_logger.h
-	src/bstone_sys_message_box.cpp
 	src/bstone_sys_message_box.h
-	src/bstone_sys_mouse.cpp
 	src/bstone_sys_mouse.h
-	src/bstone_sys_mouse_mgr.cpp
-	src/bstone_sys_mouse_mgr.h
-	src/bstone_sys_pixel_format.h
 	src/bstone_sys_polling_audio_device.cpp
 	src/bstone_sys_polling_audio_device.h
-	src/bstone_sys_rectangle.cpp
-	src/bstone_sys_rectangle.h
-	src/bstone_sys_renderer.cpp
-	src/bstone_sys_renderer.h
-	src/bstone_sys_swap_interval_type.cpp
-	src/bstone_sys_swap_interval_type.h
 	src/bstone_sys_system_mgr.cpp
 	src/bstone_sys_system_mgr.h
-	src/bstone_sys_texture.cpp
-	src/bstone_sys_texture.h
-	src/bstone_sys_texture_lock.cpp
-	src/bstone_sys_texture_lock.h
-	src/bstone_sys_video_mgr.cpp
-	src/bstone_sys_video_mgr.h
-	src/bstone_sys_video_mgr_null.cpp
-	src/bstone_sys_video_mgr_null.h
-	src/bstone_sys_vulkan_mgr.cpp
-	src/bstone_sys_vulkan_mgr.h
-	src/bstone_sys_window.cpp
-	src/bstone_sys_window.h
-	src/bstone_sys_window_mgr.cpp
-	src/bstone_sys_window_mgr.h
-	src/bstone_sys_window_rounded_corner_mgr.cpp
-	src/bstone_sys_window_rounded_corner_mgr.h
-	src/bstone_sys_window_rounded_corner_mgr_null.cpp
 )
 
 target_sources(bstone PRIVATE ${BSTONE_BSTONE_SYS_SOURCES})
@@ -605,37 +252,16 @@ source_group("bstone/sys" FILES ${BSTONE_BSTONE_SYS_SOURCES})
 set(BSTONE_BSTONE_SYS_SDL2_SOURCES
 	src/bstone_sys_audio_mgr_sdl2.cpp
 	src/bstone_sys_audio_mgr_sdl2.h
-	src/bstone_sys_detail_sdl2.cpp
-	src/bstone_sys_detail_sdl2.h
 	src/bstone_sys_event_mgr_sdl2.cpp
 	src/bstone_sys_event_mgr_sdl2.h
 	src/bstone_sys_exception_sdl2.cpp
 	src/bstone_sys_exception_sdl2.h
-	src/bstone_sys_limits_sdl2.h
 	src/bstone_sys_message_box_sdl2.cpp
-	src/bstone_sys_mouse_mgr_sdl2.cpp
-	src/bstone_sys_mouse_mgr_sdl2.h
-	src/bstone_sys_pixel_format.cpp
 	src/bstone_sys_polling_audio_device_sdl2.cpp
 	src/bstone_sys_polling_audio_device_sdl2.h
-	src/bstone_sys_renderer_sdl2.cpp
-	src/bstone_sys_renderer_sdl2.h
 	src/bstone_sys_sdl2_subsystem.cpp
 	src/bstone_sys_sdl2_subsystem.h
-	src/bstone_sys_sdl2_version.cpp
-	src/bstone_sys_sdl2_version.h
 	src/bstone_sys_system_mgr_sdl2.cpp
-	src/bstone_sys_texture_lock_sdl2.cpp
-	src/bstone_sys_texture_lock_sdl2.h
-	src/bstone_sys_texture_sdl2.cpp
-	src/bstone_sys_texture_sdl2.h
-	src/bstone_sys_video_mgr_sdl2.cpp
-	src/bstone_sys_video_mgr_sdl2.h
-	src/bstone_sys_window_mgr_sdl2.cpp
-	src/bstone_sys_window_mgr_sdl2.h
-	src/bstone_sys_window_rounded_corner_mgr_sdl2.cpp
-	src/bstone_sys_window_sdl2.cpp
-	src/bstone_sys_window_sdl2.h
 )
 
 
@@ -649,8 +275,6 @@ set(BSTONE_BSTONE_AUDIO_SOURCES
 	src/bstone_audio_content_mgr.h
 	src/bstone_audio_decoder.cpp
 	src/bstone_audio_decoder.h
-	src/bstone_audio_extractor.cpp
-	src/bstone_audio_extractor.h
 	src/bstone_audio_mixer.cpp
 	src/bstone_audio_mixer.h
 	src/bstone_audio_mixer_output_gains.h
@@ -660,7 +284,6 @@ set(BSTONE_BSTONE_AUDIO_SOURCES
 	src/bstone_audio_mixer_validator.h
 	src/bstone_audio_mixer_voice_handle.cpp
 	src/bstone_audio_mixer_voice_handle.h
-	src/bstone_audio_mixer_voice_handle_mgr.cpp
 	src/bstone_audio_mixer_voice_handle_mgr.h
 	src/bstone_audio_sample_converter.cpp
 	src/bstone_audio_sample_converter.h
@@ -700,24 +323,6 @@ source_group("bstone/audio/opl" FILES ${BSTONE_BSTONE_AUDIO_SOURCES})
 
 # ---------------------------------------------------------------------------
 
-set(BSTONE_BSTONE_AUDIO_SOURCES
-	src/bstone_oal_audio_mixer.cpp
-	src/bstone_oal_audio_mixer.h
-	src/bstone_oal_loader.cpp
-	src/bstone_oal_loader.h
-	src/bstone_oal_resource.cpp
-	src/bstone_oal_resource.h
-	src/bstone_oal_source.cpp
-	src/bstone_oal_source.h
-	src/bstone_oal_symbols.cpp
-	src/bstone_oal_symbols.h
-)
-
-target_sources(bstone PRIVATE ${BSTONE_BSTONE_AUDIO_SOURCES})
-source_group("bstone/audio/openal" FILES ${BSTONE_BSTONE_AUDIO_SOURCES})
-
-# ---------------------------------------------------------------------------
-
 set(BSTONE_BSTONE_VIDEO_SOURCES
 	src/bstone_fizzle_fx.cpp
 	src/bstone_fizzle_fx.h
@@ -729,8 +334,6 @@ set(BSTONE_BSTONE_VIDEO_SOURCES
 	src/bstone_sw_video.h
 	src/bstone_video.cpp
 	src/bstone_video.h
-	src/bstone_video_cvars.cpp
-	src/bstone_video_cvars.h
 )
 
 target_sources(bstone PRIVATE ${BSTONE_BSTONE_VIDEO_SOURCES})
@@ -739,21 +342,12 @@ source_group("bstone/video" FILES ${BSTONE_BSTONE_VIDEO_SOURCES})
 # ---------------------------------------------------------------------------
 
 set(BSTONE_BSTONE_IMAGE_SOURCES
-	src/bstone_bmp_image_common.h
-	src/bstone_bmp_image_decoder.cpp
-	src/bstone_bmp_image_decoder.h
-	src/bstone_image_decoder.cpp
-	src/bstone_image_decoder.h
 	src/bstone_image_encoder.cpp
 	src/bstone_image_encoder.h
-	src/bstone_image_extractor.cpp
-	src/bstone_image_extractor.h
 	src/bstone_sprite.cpp
 	src/bstone_sprite.h
 	src/bstone_sprite_cache.cpp
 	src/bstone_sprite_cache.h
-	src/bstone_stb_image_decoder.cpp
-	src/bstone_stb_image_decoder.h
 	src/bstone_stb_image_encoder.cpp
 	src/bstone_stb_image_encoder.h
 	src/bstone_stb_image_utils.cpp
@@ -792,44 +386,29 @@ set(BSTONE_BSTONE_SOURCES
 	src/bstone_archiver.h
 	src/bstone_atomic_flag.cpp
 	src/bstone_atomic_flag.h
-	src/bstone_char_hasher.cpp
 	src/bstone_char_hasher.h
 	src/bstone_cl.cpp
 	src/bstone_cl.h
 	src/bstone_configurations.cpp
-	src/bstone_content_path.cpp
-	src/bstone_content_path.h
 	src/bstone_door.h
-	src/bstone_encoding.cpp
-	src/bstone_encoding.h
 	src/bstone_exception_utils.cpp
 	src/bstone_exception_utils.h
 	src/bstone_extent_2d.cpp
 	src/bstone_extent_2d.h
-	src/bstone_format_string.cpp
-	src/bstone_format_string.h
 	src/bstone_fs_utils.cpp
 	src/bstone_fs_utils.h
 	src/bstone_game_timer.cpp
 	src/bstone_game_timer.h
 	src/bstone_globals.cpp
 	src/bstone_globals.h
-	src/bstone_gog_content_path.cpp
-	src/bstone_level_extractor.cpp
-	src/bstone_level_extractor.h
 	src/bstone_logger.cpp
 	src/bstone_logger.h
 	src/bstone_math.h
-	src/bstone_mod_value.h
 	src/bstone_mt_task_mgr.cpp
 	src/bstone_mt_task_mgr.h
-	src/bstone_offset_2d.cpp
-	src/bstone_offset_2d.h
 	src/bstone_page_mgr.cpp
 	src/bstone_page_mgr.h
 	src/bstone_precompiled.h
-	src/bstone_r2_extent.h
-	src/bstone_r2_offset.h
 	src/bstone_ref_values.h
 	src/bstone_rgb8.cpp
 	src/bstone_rgb8.h
@@ -838,12 +417,9 @@ set(BSTONE_BSTONE_SOURCES
 	src/bstone_rgb_palette.h
 	src/bstone_saved_game.cpp
 	src/bstone_saved_game.h
-	src/bstone_steam_content_path.cpp
 	src/bstone_string_helper.cpp
 	src/bstone_string_helper.h
 	src/bstone_string_view_hasher.h
-	src/bstone_text_extractor.cpp
-	src/bstone_text_extractor.h
 	src/bstone_text_reader.cpp
 	src/bstone_text_reader.h
 	src/bstone_text_writer.cpp
@@ -852,7 +428,6 @@ set(BSTONE_BSTONE_SOURCES
 	src/bstone_time.h
 	src/bstone_version.cpp
 	src/bstone_version.h
-	src/bstone_zstring_view_hasher.h
 )
 
 target_sources(bstone PRIVATE ${BSTONE_BSTONE_SOURCES})
@@ -860,84 +435,13 @@ source_group("bstone" FILES ${BSTONE_BSTONE_SOURCES})
 
 # ---------------------------------------------------------------------------
 
-if (WIN32)
-	set(BSTONE_RESOURCES_WIN32_SOURCES
-		src/resources/win32/bstone_win32_rc.h
-		$<$<CXX_COMPILER_ID:MSVC>:src/resources/win32/bstone_win32_msvc.manifest>
-		"${PROJECT_BINARY_DIR}/src/resources/win32/bstone_win32.rc"
-	)
-
-	target_sources(bstone PRIVATE ${BSTONE_RESOURCES_WIN32_SOURCES})
-	source_group("resources/win32" FILES ${BSTONE_RESOURCES_WIN32_SOURCES})
-endif ()
-
-# ===========================================================================
-
-#
-# Install.
-#
-install(TARGETS bstone
-	RUNTIME DESTINATION "."
-)
-
-install(FILES ../../CHANGELOG.md
-	DESTINATION "."
-	RENAME bstone_changelog.txt
-)
-
-install(FILES ../../README.md
-	DESTINATION "."
-	RENAME bstone_readme.txt
-)
-
-install(FILES ../../LICENSE.txt
-	DESTINATION "."
-	RENAME bstone_license.txt
-)
-
-set(CPACK_PACKAGE_NAME "bstone")
-set(CPACK_PACKAGE_VENDOR "Boris I. Bendovsky")
-set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
-set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
-set(CPACK_PACKAGE_VERSION ${BSTONE_VERSION_SHORT})
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Blake Stone unofficial source port")
-set(CPACK_GENERATOR "ZIP")
-set(CPACK_SOURCE_GENERATOR "ZIP")
-include(CPack)
-# Renderizador GPU para Nintendo 3DS.
-
-target_include_directories(bstone PRIVATE
-    "$ENV{DEVKITPRO}/libctru/include"
-)
-
-target_link_directories(bstone PRIVATE
-    "$ENV{DEVKITPRO}/libctru/lib"
-)
-
-target_link_libraries(bstone PRIVATE
-    citro2d
-    citro3d
-    ctru
-    m
-)
 # Native Nintendo 3DS components.
-if (CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
-    target_sources(bstone PRIVATE
-        src/bstone_3ds_automap.cpp
-        src/bstone_3ds_messages.cpp
-        src/bstone_3ds_intro.cpp
-        src/bstone_3ds_hud.cpp
-    )
-endif ()
+target_sources(bstone PRIVATE
+    src/bstone_3ds_automap.cpp
+    src/bstone_3ds_messages.cpp
+    src/bstone_3ds_intro.cpp
+    src/bstone_3ds_hud.cpp
+)
 
-# Vulkan types remain in shared BStone interfaces.
-# Nintendo 3DS does not build or link a Vulkan backend.
-if (CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
-    target_include_directories(bstone PRIVATE
-        "${CMAKE_SOURCE_DIR}/src/lib/vulkan/include"
-    )
-    target_compile_definitions(bstone PRIVATE VK_NO_PROTOTYPES)
-else ()
-    target_link_libraries(bstone PRIVATE bstone::vulkan)
-endif ()
+# The default build produces bstone.elf and bstone.3dsx side by side.
+ctr_create_3dsx(bstone NOSMDH)

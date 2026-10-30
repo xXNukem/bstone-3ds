@@ -2881,7 +2881,6 @@ extern std::int16_t TITLE_LOOP_MUSIC;
     "Try deleting some files from your hard disk.\n\n"
 
 
-extern bool is_data_dir_custom_;
 extern std::string data_dir_;
 extern std::string mod_dir_;
 
@@ -2911,11 +2910,7 @@ extern int last_map_tile_y;
 // BBi
 const int min_mouse_sensitivity = 0;
 const int max_mouse_sensitivity = 54;
-#ifndef __vita__
 const int default_mouse_sensitivity = 5;
-#else
-const int default_mouse_sensitivity = 27;
-#endif
 // BBi
 
 //
@@ -3107,9 +3102,6 @@ extern const int viewsize;
 //
 extern int controlx;
 extern int controly; // range from -100 to 100
-#ifdef __vita__
-extern int control2x; //left stick horizontal axis
-#endif
 
 using ButtonState = std::bitset<NUMBUTTONS>;
 extern ButtonState buttonstate;
@@ -3907,20 +3899,6 @@ constexpr int tilemap_door_flags = tilemap_door_track_flag | tilemap_door_flag;
 using Buffer = std::vector<unsigned char>;
 
 
-struct PaletteShiftInfo
-{
-	bool is_bonus_shifted_;
-	std::uint8_t bonus_r_;
-	std::uint8_t bonus_g_;
-	std::uint8_t bonus_b_;
-	std::uint8_t bonus_a_;
-
-	bool is_damage_shifted_;
-	std::uint8_t damage_r_;
-	std::uint8_t damage_g_;
-	std::uint8_t damage_b_;
-	std::uint8_t damage_a_;
-}; // PaletteShiftInfo
 
 
 objtype* ui16_to_actor(std::uint16_t value);
@@ -4016,7 +3994,6 @@ int player_get_weapon_sprite_id();
 
 double player_get_weapon_bounce_offset();
 
-PaletteShiftInfo palette_shift_get_info() noexcept;
 
 void cfg_file_write_entry(
 	bstone::TextWriter& writer,

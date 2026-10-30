@@ -22,14 +22,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <cstdint>
 #include <bitset>
 // TODO
-#if 0
-#ifdef __vita__
-#include "SDL.h"
-void TranslateControllerEvent(SDL_Event *ev);
-void TranslateTouchEvent(SDL_Event *ev);
-void TranslateAnalogEvent(SDL_Event *ev);
-#endif
-#endif
 #include "bstone_ccmd_mgr.h"
 #include "bstone_cvar_mgr.h"
 #include "bstone_text_writer.h"
@@ -294,14 +286,12 @@ struct KeyboardDef
 	ScanCode downright;
 };
 
-
 // Global variables
 
 class KeyboardState
 {
 private:
 	using State = std::bitset<NumCodes>;
-
 
 public:
 	State::reference operator[](int index)
@@ -375,7 +365,6 @@ void in_get_mouse_deltas(int& dx, int& dy);
 void in_clear_mouse_deltas();
 bool in_is_binding_pressed(BindingId binding_id);
 void in_reset_binding_state(BindingId binding_id);
-void in_reset_state();
 void in_serialize_bindings(bstone::TextWriter& text_writer);
 
 #endif // BSTONE_ID_IN_INCLUDED

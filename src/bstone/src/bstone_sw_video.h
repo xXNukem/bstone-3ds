@@ -5,18 +5,16 @@ Copyright (c) 2013-2024 Boris I. Bendovsky (bibendovsky@hotmail.com) and Contrib
 SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-// Software accelerated video (SW).
+// Software raycasting with native Citro3D/Citro2D presentation.
 
 #ifndef BSTONE_SW_VIDEO_INCLUDED
 #define BSTONE_SW_VIDEO_INCLUDED
 
-#include "bstone_sys_video_mgr.h"
-#include "bstone_sys_window_mgr.h"
 #include "bstone_video.h"
 
 namespace bstone {
 
-VideoUPtr make_sw_video(sys::VideoMgr& video_mgr, sys::WindowMgr& window_mgr);
+VideoUPtr make_sw_video();
 
 } // namespace bstone
 

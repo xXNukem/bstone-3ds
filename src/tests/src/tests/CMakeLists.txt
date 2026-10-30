@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
 project(bstone_tests VERSION 1.0.0 LANGUAGES CXX)
 
 message(STATUS "[bstone_tests] v${PROJECT_VERSION}")
@@ -11,20 +10,10 @@ set_target_properties(bstone_tests PROPERTIES
 	CXX_EXTENSIONS OFF
 )
 
-target_compile_definitions(bstone_tests
-	PRIVATE
-		$<$<BOOL:${WIN32}>:UNICODE>
-		$<$<BOOL:${WIN32}>:_UNICODE>
-		$<$<BOOL:${WIN32}>:_BIND_TO_CURRENT_VCLIBS_VERSION=1>
-		$<$<BOOL:${WIN32}>:NTDDI_VERSION=0x05010000>
-		$<$<BOOL:${WIN32}>:_WIN32_WINNT=0x0501>
-		$<$<BOOL:${WIN32}>:WINVER=0x0501>
-)
-
 target_compile_options(bstone_tests
 	PRIVATE
-		$<$<CXX_COMPILER_ID:MSVC>:/W4>
-		$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
+        -Werror=return-type
+		-Wall -Wextra -pedantic
 )
 
 target_include_directories(bstone_tests
@@ -32,76 +21,33 @@ target_include_directories(bstone_tests
 		${PROJECT_SOURCE_DIR}/../../../bstone/src
 )
 
-target_link_libraries(bstone_tests
-	PRIVATE
-		${CMAKE_DL_LIBS}
-		bstone_tests_shared_library
-)
-
 target_sources(bstone_tests
 	PRIVATE
-		../../../bstone/src/bstone_char_traits.cpp
 		../../../bstone/src/bstone_char_traits.h
 		../../../bstone/src/bstone_exception.cpp
 		../../../bstone/src/bstone_exception.h
 		../../../bstone/src/bstone_source_location.cpp
 		../../../bstone/src/bstone_source_location.h
-		../../../bstone/src/bstone_span.cpp
 		../../../bstone/src/bstone_span.h
-		../../../bstone/src/bstone_utility.cpp
 		../../../bstone/src/bstone_utility.h
-		../../../bstone/src/bstone_algorithm.cpp
 		../../../bstone/src/bstone_algorithm.h
-		../../../bstone/src/bstone_ascii.cpp
 		../../../bstone/src/bstone_ascii.h
-		../../../bstone/src/bstone_endian.cpp
 		../../../bstone/src/bstone_endian.h
-		../../../bstone/src/bstone_memory.cpp
 		../../../bstone/src/bstone_memory.h
 		../../../bstone/src/bstone_memory_resource.cpp
 		../../../bstone/src/bstone_memory_resource.h
-		../../../bstone/src/bstone_scope_exit.cpp
 		../../../bstone/src/bstone_scope_exit.h
-		../../../bstone/src/bstone_array.cpp
 		../../../bstone/src/bstone_array.h
 		../../../bstone/src/bstone_char_conv.cpp
 		../../../bstone/src/bstone_char_conv.cpp
-		../../../bstone/src/bstone_unique_resource.cpp
-		../../../bstone/src/bstone_unique_resource.h
-		../../../bstone/src/bstone_cgm_vec.cpp
-		../../../bstone/src/bstone_cgm_vec.h
-		../../../bstone/src/bstone_cgm_mat.cpp
-		../../../bstone/src/bstone_cgm_mat.h
-		../../../bstone/src/bstone_cgm_clip_space.cpp
-		../../../bstone/src/bstone_cgm_clip_space.h
-		../../../bstone/src/bstone_cgm_transform.cpp
-		../../../bstone/src/bstone_cgm_transform.h
 		../../../bstone/src/bstone_sha1.cpp
 		../../../bstone/src/bstone_sha1.h
-		../../../bstone/src/bstone_memory_pool_bitmap.cpp
-		../../../bstone/src/bstone_memory_pool_bitmap.h
-		../../../bstone/src/bstone_unicode.cpp
-		../../../bstone/src/bstone_unicode.h
-		../../../bstone/src/bstone_utf.cpp
-		../../../bstone/src/bstone_utf.h
-		../../../bstone/src/bstone_utf16.cpp
-		../../../bstone/src/bstone_utf16.h
-		../../../bstone/src/bstone_utf8.cpp
-		../../../bstone/src/bstone_utf8.h
-		../../../bstone/src/bstone_single_pool_resource.cpp
 		../../../bstone/src/bstone_single_pool_resource.h
-		../../../bstone/src/bstone_fixed_pool_resource.cpp
-		../../../bstone/src/bstone_fixed_pool_resource.h
-		../../../bstone/src/bstone_generic_pool_resource.cpp
-		../../../bstone/src/bstone_generic_pool_resource.h
 		../../../bstone/src/bstone_auto_arena_resource.cpp
 		../../../bstone/src/bstone_auto_arena_resource.h
 		../../../bstone/src/bstone_ts_auto_arena_resource.cpp
 		../../../bstone/src/bstone_ts_auto_arena_resource.h
-		../../../bstone/src/bstone_win32_wstring.cpp
-		../../../bstone/src/bstone_win32_wstring.h
 		../../../bstone/src/bstone_file_posix.cpp
-		../../../bstone/src/bstone_file_win32.cpp
 		../../../bstone/src/bstone_file.cpp
 		../../../bstone/src/bstone_file.h
 		../../../bstone/src/bstone_stream.cpp
@@ -110,50 +56,18 @@ target_sources(bstone_tests
 		../../../bstone/src/bstone_file_stream.h
 		../../../bstone/src/bstone_memory_stream.cpp
 		../../../bstone/src/bstone_memory_stream.h
-		../../../bstone/src/bstone_static_memory_stream.cpp
-		../../../bstone/src/bstone_static_memory_stream.h
 		../../../bstone/src/bstone_static_ro_memory_stream.cpp
 		../../../bstone/src/bstone_static_ro_memory_stream.h
-		../../../bstone/src/bstone_binary_reader.cpp
-		../../../bstone/src/bstone_binary_reader.h
-		../../../bstone/src/bstone_binary_writer.cpp
-		../../../bstone/src/bstone_binary_writer.h
 		../../../bstone/src/bstone_crc32.cpp
 		../../../bstone/src/bstone_crc32.h
-		../../../bstone/src/bstone_shared_library.cpp
-		../../../bstone/src/bstone_shared_library.h
-		../../../bstone/src/bstone_shared_library_posix.cpp
-		../../../bstone/src/bstone_shared_library_win32.cpp
-		../../../bstone/src/bstone_win32_registry_key.cpp
-		../../../bstone/src/bstone_win32_registry_key.h
-		../../../bstone/src/bstone_api_string.cpp
 		../../../bstone/src/bstone_api_string.h
-		../../../bstone/src/bstone_cxx.cpp
 		../../../bstone/src/bstone_cxx.h
-		../../../bstone/src/bstone_string_view.cpp
 		../../../bstone/src/bstone_string_view.h
-		../../../bstone/src/bstone_string.cpp
-		../../../bstone/src/bstone_string.h
 		../../../bstone/src/bstone_fs_posix.cpp
-		../../../bstone/src/bstone_fs_win32.cpp
-		../../../bstone/src/bstone_fs.cpp
 		../../../bstone/src/bstone_fs.h
 		../../../bstone/src/bstone_posix_string.cpp
 		../../../bstone/src/bstone_posix_string.h
-		../../../bstone/src/bstone_win32_advapi32_symbols.cpp
-		../../../bstone/src/bstone_win32_advapi32_symbols.h
-		../../../bstone/src/bstone_four_cc.cpp
 		../../../bstone/src/bstone_four_cc.h
-		../../../bstone/src/bstone_uuid.cpp
-		../../../bstone/src/bstone_uuid_unix.cpp
-		../../../bstone/src/bstone_uuid_win32.cpp
-		../../../bstone/src/bstone_uuid.h
-		../../../bstone/src/bstone_win32_unique_resources.cpp
-		../../../bstone/src/bstone_win32_unique_resources.h
-		../../../bstone/src/bstone_process.cpp
-		../../../bstone/src/bstone_process_posix.cpp
-		../../../bstone/src/bstone_process_win32.cpp
-		../../../bstone/src/bstone_process.h
 	PRIVATE
 		src/bstone_tests_algorithm.cpp
 		src/bstone_tests_array.cpp
@@ -167,44 +81,25 @@ target_sources(bstone_tests
 		src/bstone_tests_scope_exit.cpp
 		src/bstone_tests_source_location.cpp
 		src/bstone_tests_span.cpp
-		src/bstone_tests_unique_resource.cpp
 		src/bstone_tests_utility.cpp
-		src/bstone_tests_cgm_vec.cpp
-		src/bstone_tests_cgm_mat.cpp
-		src/bstone_tests_cgm_clip_space.cpp
-		src/bstone_tests_cgm_transform.cpp
 		src/bstone_tests_sha1.cpp
-		src/bstone_tests_memory_pool_bitmap.cpp
-		src/bstone_tests_utf.cpp
 		src/bstone_tests_single_pool_resource.cpp
-		src/bstone_tests_fixed_pool_resource.cpp
-		src/bstone_tests_generic_pool_resource.cpp
 		src/bstone_tests_auto_arena_resource.cpp
 		src/bstone_tests_ts_auto_arena_resource.cpp
-		src/bstone_tests_win32_wstring.cpp
 		src/bstone_tests_configurations.cpp
 		src/bstone_tests_file.cpp
 		src/bstone_tests_file_stream.cpp
 		src/bstone_tests_memory_stream.cpp
-		src/bstone_tests_static_memory_stream.cpp
 		src/bstone_tests_static_ro_memory_stream.cpp
-		src/bstone_tests_binary_reader.cpp
-		src/bstone_tests_binary_writer.cpp
 		src/bstone_tests_crc32.cpp
-		src/bstone_tests_shared_library.cpp
-		src/bstone_tests_win32_registry_key.cpp
 		src/bstone_tests_api_string.cpp
 		src/bstone_tests_string_view.cpp
-		src/bstone_tests_string.cpp
 		src/bstone_tests_fs.cpp
 		src/bstone_tests_four_cc.cpp
-		src/bstone_tests_uuid.cpp
-		src/bstone_tests_process.cpp
 	PRIVATE
 		src/bstone_tester.cpp
 		src/bstone_tester.h
 		src/bstone_tests.cpp
 )
 
-install(TARGETS bstone_tests RUNTIME DESTINATION "bstone_tests")
-install(DIRECTORY data DESTINATION "bstone_tests")
+ctr_create_3dsx(bstone_tests NOSMDH)

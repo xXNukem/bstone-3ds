@@ -15,11 +15,7 @@ namespace bstone {
 namespace fs {
 
 constexpr char native_separator =
-#if defined(_WIN32)
-	'\\'
-#else
 	'/'
-#endif
 ;
 
 // ==========================================================================

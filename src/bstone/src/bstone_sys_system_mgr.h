@@ -14,7 +14,6 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_audio_mgr.h"
 #include "bstone_sys_event_mgr.h"
 #include "bstone_sys_logger.h"
-#include "bstone_sys_video_mgr.h"
 
 namespace bstone {
 namespace sys {
@@ -28,13 +27,11 @@ public:
 	Logger& get_logger();
 	AudioMgr& get_audio_mgr();
 	EventMgr& get_event_mgr();
-	VideoMgr& get_video_mgr();
 
 private:
 	virtual Logger& do_get_logger() = 0;
 	virtual AudioMgr& do_get_audio_mgr() = 0;
 	virtual EventMgr& do_get_event_mgr() = 0;
-	virtual VideoMgr& do_get_video_mgr() = 0;
 };
 
 // ==========================================================================

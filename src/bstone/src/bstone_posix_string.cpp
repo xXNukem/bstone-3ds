@@ -6,7 +6,6 @@ SPDX-License-Identifier: MIT
 
 // POSIX API string.
 
-#ifndef _WIN32
 
 #include <algorithm>
 #include <memory>
@@ -82,5 +81,3 @@ PosixString::PosixString(const char* string, MemoryResource& memory_resource)
 }
 
 } // namespace bstone
-
-#endif // _WIN32

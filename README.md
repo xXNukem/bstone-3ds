@@ -1,71 +1,48 @@
-
 # BStone 3DS
 
 **A native dual-screen port of Blake Stone: Aliens of Gold for New Nintendo 3DS.**
 
-BStone 3DS is an unofficial homebrew port of the classic 1993 first-person shooter *Blake Stone: Aliens of Gold* to the New Nintendo 3DS family of systems.
+BStone 3DS is an unofficial homebrew adaptation of the 1993 game, based on
+[BStone](https://github.com/bibendovsky/bstone) by Boris I. Bendovsky and its
+contributors. The Nintendo 3DS port is developed independently by **xXNukem**.
 
-Based on [BStone](https://github.com/bibendovsky/bstone), the open-source engine developed by Boris I. Bendovsky, this project aims to bring the complete Blake Stone experience to Nintendo's handheld while taking advantage of its unique hardware, controls, and dual-screen design.
+The project targets New Nintendo 3DS, New Nintendo 3DS XL and New Nintendo 2DS XL.
+The stereoscopic effect requires a model with a 3D display. The working baseline
+has been tested on real New Nintendo 3DS hardware. Every newly built cleanup
+version still needs a hardware check before it is treated as validated.
 
-The project is developed independently as a personal, open-source effort.
+## Architecture
 
-## Current Status
+- The original software raycaster renders the scene, sprites and player weapon.
+- Citro3D/Citro2D present the full-screen 400×240 upper image, including separate
+  left/right-eye buffers controlled by the 3D slider.
+- The lower screen has a permanent automap, player marker, animated ECG, health,
+  ammunition, weapons, score, lives, keys, radar and gameplay messages.
+- SDL2 supplies audio devices, controller/keyboard event translation and the N3DS
+  video event pump. Its N3DS backend owns `gfxInit`/`gfxExit` and HID/APT polling.
+  The game does not create SDL windows, renderers or textures. The native
+  presenter releases its GPU resources before SDL shuts down graphics.
+- libctru HID supplies gameplay actions and the emergency exit chord. SDL
+  GameController navigation and the existing native menu input remain in use.
+- The system mixer, DOSBox DBOPL and Nuked OPL3 reproduce the original AdLib,
+  PCM and PC Speaker audio. Memory, timing and concurrency utilities remain
+  where the engine needs them.
+- Original data, saves, configuration, scores and screenshots use the SD card
+  through newlib/POSIX file access. Resource decompression and validation remain
+  in the engine.
 
-**Playable dual-screen alpha version**
+Only widescreen and UI stretching are exposed as presentation settings. Desktop
+renderers, window-mode/resolution selection, Steam/GOG installation detection,
+asset export commands, xBRZ, desktop tools and the unsupported Vita port have
+been removed. SDL2 is an external static Nintendo 3DS dependency.
 
-The game is currently playable on New Nintendo 3DS hardware, with both screens actively used during gameplay.
+## Installation and game data
 
-### Top Screen
+You need a homebrew-capable New Nintendo system, the Homebrew Launcher and your
+own original game data. Game assets are not distributed with this project.
 
-- Native 400×240 widescreen first-person rendering.
-- Full-screen 3D gameplay without the original top and bottom HUD bars.
-- Improved perspective scaling and screen utilization.
-- First-person weapons remain visible during gameplay.
-- Functional game menus and interface.
-- Native stereoscopic 3D rendering during gameplay, controlled by the 3D slider.
-
-### Bottom Screen
-
-- Dedicated, custom HUD rendered using Citro2D.
-- Animated ECG health monitor with dynamic heartbeat behavior.
-- Real-time health percentage and condition-dependent ECG colors.
-- Permanently visible automap that updates while exploring.
-- Player position and facing direction displayed on the automap.
-- Explored rooms, corridors, walls, and doors represented on the map.
-- Weapon information, ammunition, and charge indicators.
-- Score, food tokens, floor number, and remaining lives.
-- Access cards and radar energy indicators.
-
-### Additional Features
-
-- Controls adapted to the New Nintendo 3DS.
-- Working sound effects and music.
-- Functional save/load system.
-- Playable performance on real hardware.
-- Native `.3dsx` homebrew executable.
-
-The dual-screen interface is functional but still under development. Further visual improvements, touchscreen interactions, and automap refinements are planned.
-
-*Blake Stone: Aliens of Gold* is the game currently tested with this port. **Blake Stone: Planet Strike has not been tested yet**, so its compatibility remains unknown.
-
-## Installation
-
-### Requirements
-
-- A New Nintendo 3DS, New Nintendo 3DS XL, or New Nintendo 2DS XL capable of running homebrew.
-- The Homebrew Launcher.
-- The `bstone.3dsx` executable.
-- Original game data files from the full version of *Blake Stone: Aliens of Gold*.
-
-### Steps
-
-1. Obtain `bstone.3dsx` from a published release or compile it from source.
-2. Create the directory `/3ds/bstone/` on your SD card.
-3. Copy `bstone.3dsx` into that directory.
-4. Copy your original *Blake Stone: Aliens of Gold* game data files (`.BS6`) into the same directory.
-5. Launch BStone 3DS through the Homebrew Launcher.
-
-The final directory should look similar to this:
+Create `/3ds/bstone/` on the microSD and put `bstone.3dsx` and the original full
+Aliens of Gold `.BS6` files there:
 
 ```text
 sdmc:/3ds/bstone/
@@ -84,73 +61,168 @@ sdmc:/3ds/bstone/
     VSWAP.BS6
 ```
 
-The game automatically uses this directory for its data and profile files.
+Launch through the Homebrew Launcher. Existing installations, saves and user
+configuration continue to use `sdmc:/3ds/bstone/`; no migration is required.
+The content search retains the configured data directory, working directory
+and profile directory. Old desktop configuration keys are reported as unknown
+and skipped, while retained settings continue to load.
 
-**Important:** Game assets are not included in this repository or its releases. You must provide your own legally obtained copy of the game.
+Aliens of Gold is the tested default launch mode. The original Planet Strike
+loaders and game logic are preserved, but Planet Strike remains untested on
+hardware. The current launch arguments in `3d_main.cpp` select `--aog`; selecting
+Planet Strike is still a source-level launch setting.
 
 ## Controls
 
-| Button | Action |
+| Control | Action |
 |---|---|
-| D-Pad Up / Down | Move forward / backward |
-| D-Pad Left / Right | Turn left / right |
+| Circle Pad / D-Pad Up and Down | Move forward / backward |
+| Circle Pad / D-Pad Left and Right | Turn left / right |
 | L / R | Strafe left / right |
 | A | Fire / Confirm |
 | B | Interact, open doors / Cancel |
-| ZL | Next weapon |
-| ZR | Previous weapon |
-| START | Open game menu |
-| START + SELECT | Exit the game |
+| ZL / ZR | Next / previous weapon |
+| START | Open the game menu |
+| START + SELECT | Emergency exit |
 
-The original game menus can be navigated using the console controls.
+The lower automap is always visible during gameplay. Existing menus, save/load,
+introductions, movies and transitions use the current console controls.
+Touchscreen interaction and C-Stick camera turning are not implemented; neither
+is needed to play.
 
-The bottom-screen automap is permanently visible during gameplay and does not require manual activation.
+## Build from a clean directory
 
-Touchscreen interactions are not yet implemented.
+### Dependencies
 
-## Known Issues
+- CMake 3.18 or newer and a host build tool such as Make or Ninja.
+- devkitPro's devkitARM toolchain and Nintendo 3DS tools (`3dsxtool`, and `3dslink`
+  for network testing).
+- libctru, Citro2D and Citro3D installed under devkitPro's Nintendo 3DS roots.
+- SDL2 cross-compiled as a static Nintendo 3DS library, exporting the CMake target
+  `SDL2::SDL2-static`. A host SDL2 package cannot be linked into the console game.
+- Optional Git for the version suffix. Source archives also build; releases can
+  set `BSTONE_CI_GIT_HASH` explicitly.
 
-This is an experimental alpha release, and some issues are still being addressed.
+DOSBox DBOPL, Nuked OPL3 and the stb PNG writer are retained in the repository,
+with their licenses. Keep the installed SDL2 N3DS audio, video, events and
+GameController/joystick support enabled, together with their threading and
+synchronization dependencies.
 
-- Occasional audio glitches or interruptions may occur during gameplay.
-- The bottom-screen HUD and automap are functional but require further visual refinement.
-- Touchscreen controls are not yet available.
-- Some interface elements and menus still need further adaptation to the handheld format. Many menu options are inherited from the PC version of BStone and should not be changed until adapted to New Nintendo 3DS.
-- Native stereoscopic 3D is currently supported during gameplay only; menus and other non-gameplay screens remain in 2D.
-- Enabling stereoscopic 3D causes a noticeable performance drop, although the game remains playable.
-- Only *Aliens of Gold* has been tested; *Planet Strike* remains untested.
+The toolchain tested during cleanup is devkitARM GCC 16.1.0. The external SDL2
+installation reports version 2.33.0; its clean source checkout is commit
+`8acf7cfc0f88717e5c036f60f0314bfcafe39189` of
+[libsdl-org/SDL](https://github.com/libsdl-org/SDL).
 
-Bug reports, testing results, and suggestions are welcome through [GitHub Issues](https://github.com/xXNukem/bstone-3ds/issues).
+### Building SDL2 separately
 
-## Roadmap
+If SDL2 is not already installed for Nintendo 3DS, obtain that SDL2 source
+revision and build it outside this repository. Example paths below are local
+paths you choose:
 
-The long-term goal is to create a complete, polished Blake Stone experience specifically designed for the New Nintendo 3DS.
+```sh
+export DEVKITPRO=/opt/devkitpro
 
-### Completed
+cmake -S /path/to/SDL2 -B /path/to/SDL2-build-3ds \
+  -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/3DS.cmake" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/path/to/SDL2-install-3ds \
+  -DSDL_STATIC=ON -DSDL_SHARED=OFF \
+  -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL2_DISABLE_SDL2MAIN=ON
+cmake --build /path/to/SDL2-build-3ds --parallel 4
+cmake --install /path/to/SDL2-build-3ds
+```
 
-- [x] First playable native New Nintendo 3DS port.
-- [x] Working controls, audio, menus, and save/load functionality.
-- [x] Native 400×240 widescreen first-person rendering.
-- [x] Full-screen gameplay without the original HUD bars.
-- [x] Dedicated lower-screen HUD.
-- [x] Animated ECG health monitor.
-- [x] Real-time health, ammunition, weapon, score, lives, and access-card indicators.
-- [x] Permanently visible, real-time automap on the lower screen.
-- [x] Native stereoscopic 3D rendering during gameplay.
+The game loads assets from the SD card and does not link SDL2main or use ROMFS.
+The external SDL2 license is preserved in [licenses/SDL2.txt](licenses/SDL2.txt).
 
-### Planned Improvements
+### Building the game
 
-- [ ] Fix remaining audio glitches and improve sound stability.
-- [ ] Further optimize performance and gameplay stability.
-- [ ] Refine controls and menu navigation, including optional C-Stick camera turning.
-- [ ] Improve automap appearance, readability, and additional map details.
-- [ ] Refine the bottom-screen HUD layout and visual presentation.
-- [ ] Add touchscreen interactions and controls.
-- [ ] Further improve first-person perspective and weapon presentation.
+From the root of this repository, choose a **new** build directory:
 
-Features and priorities may change as development progresses.
+```sh
+export DEVKITPRO=/opt/devkitpro
+
+cmake -S . -B build/3ds-release \
+  -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/3DS.cmake" \
+  -DSDL2_DIR=/path/to/SDL2-install-3ds/lib/cmake/SDL2 \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build/3ds-release --parallel 4
+```
+
+The default build generates both:
+
+```text
+build/3ds-release/src/bstone/bstone.elf
+build/3ds-release/src/bstone/bstone.3dsx
+```
+
+Keep the ELF corresponding to each tested `.3dsx`: ARM11 crash addresses must be
+resolved against the exact matching ELF. Missing return statements are build
+errors (`-Werror=return-type`).
+
+`SDL2_DIR` may be omitted when the cross-compiled SDL2 package is discoverable
+in devkitPro's target prefix. With `DEVKITPRO` set, the project can also select
+`cmake/3DS.cmake` automatically. Other target platforms are rejected.
+
+Optional flags are `BSTONE_MORE_COMPILER_WARNINGS`, `BSTONE_USE_PCH` and
+`BSTONE_NO_ASSERT`. Debug builds are selected with `-DCMAKE_BUILD_TYPE=Debug`.
+
+### Testing on the console
+
+Enable the Homebrew Launcher's network receiver and send the executable:
+
+```sh
+3dslink build/3ds-release/src/bstone/bstone.3dsx
+```
+
+Check startup, original data detection, both screens, both stereo eyes and the
+slider, widescreen/UI settings, menus, intros/movies/transitions, movement,
+actions, weapon selection, sound/music, existing saves, saving/overwriting,
+configuration persistence and START+SELECT exit. Successful compilation and
+transfer do not establish correct behavior on hardware.
+
+Generic tests for retained engine primitives live under `src/tests`. Their
+separate build also targets Nintendo 3DS:
+
+```sh
+cmake -S src/tests -B build/3ds-component-tests \
+  -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/3DS.cmake" \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build/3ds-component-tests --parallel 4
+```
+
+This produces `build/3ds-component-tests/src/tests/bstone_tests.3dsx`.
+The component suite is cross-compiled during cleanup; it has not been validated
+as a complete runtime suite on the console. In particular, generic file tests
+can exercise operations not supported by the console filesystem.
+
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| `src/bstone/src/` | Game, resource loaders, software video and native 3DS presentation/input |
+| `src/bstone/src/dosbox/` | DBOPL sound emulation and its license |
+| `src/lib/nuked_opl3/` | Nuked OPL3; `opl3.cpp` includes the required `opl3.c` implementation |
+| `src/lib/stb/` | PNG image writer for screenshots and upstream license |
+| `src/tests/` | Component tests for retained primitives |
+| `cmake/` | Source-revision helper |
+| `licenses/` | External runtime dependency notices |
+
+## Known limitations
+
+- Occasional audio interruptions may occur.
+- Stereoscopic rendering costs additional CPU/GPU time and is used during
+  gameplay; menus and other non-gameplay screens remain in 2D.
+- The lower HUD/automap and some original menus remain work in progress.
+- Touchscreen controls and optional C-Stick camera turning remain future work.
+- Planet Strike has not been tested on hardware.
+
+Report issues at [BStone 3DS Issues](https://github.com/xXNukem/bstone-3ds/issues),
+including the build revision and whether the issue occurs in 2D or 3D.
 
 ## Credits
+
+Nintendo 3DS port by **xXNukem**.
 
 This project would not be possible without the work of **Boris I. Bendovsky**, creator of the original [BStone source port](https://github.com/bibendovsky/bstone), and its contributors.
 

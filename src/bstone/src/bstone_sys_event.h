@@ -17,7 +17,6 @@ enum class EventType
 {
 	none,
 	quit,
-	window,
 	keyboard,
 	mouse_motion,
 	mouse_button,
@@ -66,19 +65,6 @@ struct MouseWheelEvent : CommonEvent
 	unsigned int window_id;
 };
 
-enum class WindowEventType
-{
-	none,
-	keyboard_focus_gained,
-	keyboard_focus_lost,
-};
-
-struct WindowEvent : CommonEvent
-{
-	WindowEventType event_type;
-	unsigned int id;
-};
-
 union Event
 {
 	CommonEvent common;
@@ -86,7 +72,6 @@ union Event
 	MouseMotionEvent mouse_motion;
 	MouseButtonEvent mouse_button;
 	MouseWheelEvent mouse_wheel;
-	WindowEvent window;
 };
 
 } // namespace sys

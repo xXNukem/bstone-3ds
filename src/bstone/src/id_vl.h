@@ -5,10 +5,8 @@ Copyright (c) 2013-2024 Boris I. Bendovsky (bibendovsky@hotmail.com) and Contrib
 SPDX-License-Identifier: GPL-2.0-or-later
 */
 
-
 #ifndef BSTONE_ID_VL_INCLUDED
 #define BSTONE_ID_VL_INCLUDED
-
 
 #include <cstdint>
 #include <memory>
@@ -18,27 +16,21 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "bstone_extent_2d.h"
 #include "bstone_ref_values.h"
-#include "bstone_renderer_type.h"
 #include "bstone_rgb_palette.h"
 #include "bstone_cvar_mgr.h"
 #include "bstone_string_view.h"
 #include "bstone_fizzle_fx.h"
 
-
 namespace bstone
 {
-
 
 class TextWriter;
 class SpriteCache;
 
-
 } // bstone
-
 
 struct statobj_t;
 struct objtype;
-
 
 using VgaColor = std::array<std::uint8_t, 3>;
 using VgaPalette = std::array<VgaColor, 256>;
@@ -46,37 +38,10 @@ using VgaPalette = std::array<VgaColor, 256>;
 using VgaBuffer = std::vector<std::uint8_t>;
 using UiMaskBuffer = std::array<bool, vga_ref_width * vga_ref_height>;
 
-enum class WindowMode
-{
-	windowed = 0,
-	fullscreen,
-	fake_fullscreen,
-};
-
-struct VideoModeCfg
-{
-	bstone::RendererType renderer_type;
-	int width;
-	int height;
-	int refresh_rate;
-	WindowMode window_mode;
-	bool is_vsync_;
-}; // VideoModeCfg
-
-bool operator==(
-	const VideoModeCfg& lhs,
-	const VideoModeCfg& rhs) noexcept;
-
-bool operator!=(
-	const VideoModeCfg& lhs,
-	const VideoModeCfg& rhs) noexcept;
-
+constexpr int vid_native_width = 400;
+constexpr int vid_native_height = 240;
 
 extern std::uint8_t* vga_memory;
-
-
-
-
 
 struct VidLayout
 {
@@ -113,7 +78,7 @@ extern VidLayout vid_layout_;
 
 using ScreenshotBuffer = std::unique_ptr<std::uint8_t[]>;
 
-using SdlPalette = std::array<std::uint32_t, bstone::RgbPalette::get_max_color_count()>;
+using PackedPalette = std::array<std::uint32_t, bstone::RgbPalette::get_max_color_count()>;
 
 extern VgaBuffer vid_ui_buffer_;
 extern UiMaskBuffer vid_mask_buffer_;
@@ -130,7 +95,6 @@ struct CalculateScreenSizeInputParam
 	int window_width;
 	int window_height;
 }; // CalculateScreenSizeInputParam
-
 
 // ===========================================================================
 
@@ -285,34 +249,6 @@ void VL_ScreenToMem(
 
 void vid_initialize_cvars(bstone::CVarMgr& cvar_mgr);
 
-
-VideoModeCfg vid_cfg_get_video_mode() noexcept;
-
-bool vid_cfg_parse_key_value(
-	const std::string& key_string,
-	const std::string& value_string);
-
-void vid_cfg_write(
-	bstone::TextWriter& text_writer);
-
-
-using VidRendererTypes = std::vector<bstone::RendererType>;
-
-const VidRendererTypes& vid_get_available_renderer_types();
-
-
-struct VidWindowSize
-{
-	int width;
-	int height;
-	int refresh_rate;
-}; // VidWindowSize
-
-using VidWindowSizes = std::vector<VidWindowSize>;
-
-const VidWindowSizes& vid_get_window_size_list();
-
-
 void VL_RefreshScreen();
 
 int vl_get_offset(
@@ -327,44 +263,11 @@ std::uint8_t vl_get_pixel(
 
 void vl_update_widescreen();
 
-
-bstone::RendererType vid_cfg_get_renderer_type() noexcept;
-void vid_cfg_set_renderer_type(bstone::RendererType renderer_type);
-
-bool vid_cfg_is_positioned() noexcept;
-
-bool vid_cfg_is_vsync() noexcept;
-void vid_cfg_set_is_vsync(bool is_enabled);
-
 bool vid_cfg_is_ui_stretched() noexcept;
 void vid_cfg_set_is_ui_stretched(bool is_enabled);
 
 bool vid_cfg_is_widescreen() noexcept;
 void vid_cfg_set_is_widescreen(bool is_enabled);
-
-int vid_cfg_get_x() noexcept;
-int vid_cfg_get_y() noexcept;
-
-int vid_cfg_get_width() noexcept;
-void vid_cfg_set_width(int width);
-
-int vid_cfg_get_height() noexcept;
-void vid_cfg_set_height(int height);
-
-int vid_cfg_get_refresh_rate();
-void vid_cfg_set_refresh_rate(int refresh_rate);
-
-WindowMode vid_cfg_get_window_mode();
-void vid_cfg_set_window_mode(WindowMode window_mode);
-
-int vid_cfg_get_filler_color_index() noexcept;
-void vid_cfg_set_filler_color_index(int index);
-
-bool vid_cfg_is_external_textures_enabled() noexcept;
-void vid_cfg_set_is_external_textures_enabled(bool is_enabled);
-
-bool vid_check_r3_api_call_for_errors() noexcept;
-void vid_check_r3_api_call_for_errors(bool is_enabled);
 
 void vid_set_ui_mask(
 	bool value);
@@ -400,104 +303,6 @@ void vid_draw_ui_sprite(
 	int center_y,
 	int new_side);
 
-void vid_hw_on_load_level();
-
-void vid_hw_on_update_wall_switch(
-	int x,
-	int y);
-
-void vid_hw_on_move_pushwall();
-
-void vid_hw_on_step_pushwall(
-	int old_x,
-	int old_y);
-
-void vid_hw_on_pushwall_to_wall(
-	int old_x,
-	int old_y,
-	int new_x,
-	int new_y);
-
-void vid_hw_on_move_door(
-	int door_index);
-
-void vid_hw_on_update_door_lock(
-	int door_index);
-
-void vid_hw_on_remove_static(
-	const statobj_t& bs_static);
-
-void vid_hw_on_remove_actor(
-	const objtype& bs_actor);
-
-
-void vid_hw_enable_fizzle_fx(
-	bool is_enabled);
-
-void vid_hw_enable_fizzle_fx_fading(
-	bool is_fading);
-
-void vid_hw_set_fizzle_fx_color_index(
-	int color_index);
-
-void vid_hw_set_fizzle_fx_ratio(
-	float ratio);
-
-
-void vid_hw_clear_wall_render_list();
-
-void vid_hw_add_wall_render_item(
-	int tile_x,
-	int tile_y);
-
-
-void vid_hw_clear_pushwall_render_list();
-
-void vid_hw_add_pushwall_render_item(
-	int tile_x,
-	int tile_y);
-
-
-void vid_hw_clear_door_render_list();
-
-void vid_hw_add_door_render_item(
-	int tile_x,
-	int tile_y);
-
-
-void vid_hw_clear_static_render_list();
-
-void vid_hw_add_static_render_item(
-	int bs_static_index);
-
-
-void vid_hw_clear_actor_render_list();
-
-void vid_hw_add_actor_render_item(
-	int bs_actor_index);
-
-const bstone::Rgba8Palette& vid_hw_get_default_palette();
-
-void vid_apply_video_mode(
-	const VideoModeCfg& video_mode_cfg);
-
-void vid_apply_anisotropy();
-
-void vid_apply_2d_image_filter();
-
-void vid_apply_3d_image_filter();
-
-void vid_apply_mipmap_filter();
-
-void vid_apply_upscale();
-
-int vid_clamp_filler_color_index(
-	int filler_color_index) noexcept;
-
-void vid_apply_filler_color();
-
-void vid_apply_external_textures();
-
 void vid_schedule_take_screenshot();
 
 void vid_schedule_save_screenshot_task(
@@ -515,9 +320,6 @@ void vid_initialize_common();
 
 void vid_initialize_ui_buffer();
 
-std::string vid_get_window_title_for_renderer(bstone::StringView renderer_name);
-
-std::string vid_get_game_name_and_game_version_string();
 
 CalculateScreenSizeInputParam vid_create_screen_size_param() noexcept;
 
@@ -528,10 +330,6 @@ void vid_calculate_window_elements_dimensions(
 void vid_calculate_vga_dimensions() noexcept;
 
 std::string vid_to_string(bool value);
-std::string vid_to_string(int value);
 
-bool vid_is_hw();
-
-bool vid_is_native_mode() noexcept;
 
 #endif // BSTONE_ID_VL_INCLUDED

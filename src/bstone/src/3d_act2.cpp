@@ -2691,7 +2691,6 @@ void ActivateWallSwitch(
 		tilemap[x][y] = static_cast<std::uint8_t>(states[barrier.on]);
 
 		// BBi
-		vid_hw_on_update_wall_switch(x, y);
 		// BBi
 
 		DisplaySwitchOperateMsg(num);
@@ -2712,7 +2711,6 @@ void ActivateWallSwitch(
 						*tile = static_cast<std::uint8_t>(newwall);
 						*actor = newwall;
 
-						vid_hw_on_update_wall_switch(mapx, mapy);
 					}
 				}
 

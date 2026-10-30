@@ -29,50 +29,13 @@ SPDX-License-Identifier: MIT
 #endif
 
 #ifndef BSTONE_ENDIAN
-
-	#if defined(_WIN32) && !defined(__MINGW32__)
-
-		//
-		// Visual C++
-		//
-		#if _MSC_VER
-			#if (defined(_M_IX86) && _M_IX86 == 600) || (defined(_M_AMD64) && _M_AMD64 == 100)
-				#define BSTONE_ENDIAN BSTONE_LITTLE_ENDIAN
-			#endif
-		#endif
-
-	#else
-
-		//
-		// __BYTE_ORDER__
-		//
-		#ifndef BSTONE_ENDIAN
-			#if defined(__BYTE_ORDER__)
-				#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-					#define BSTONE_ENDIAN BSTONE_BIG_ENDIAN
-				#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-					#define BSTONE_ENDIAN BSTONE_LITTLE_ENDIAN
-				#endif
-			#endif
-		#endif
-
-		//
-		// __BIG_ENDIAN__ / __LITTLE_ENDIAN__
-		//
-		#ifndef BSTONE_ENDIAN
-			#if defined(__BIG_ENDIAN__)
-				#define BSTONE_ENDIAN BSTONE_BIG_ENDIAN
-			#elif defined(__LITTLE_ENDIAN__)
-				#define BSTONE_ENDIAN BSTONE_LITTLE_ENDIAN
-			#endif
-		#endif
-
-	#endif
-
-#endif
-
-#ifndef BSTONE_ENDIAN
-	#error Unknown byte order.
+    #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        #define BSTONE_ENDIAN BSTONE_BIG_ENDIAN
+    #elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        #define BSTONE_ENDIAN BSTONE_LITTLE_ENDIAN
+    #else
+        #error Unknown byte order.
+    #endif
 #endif
 
 namespace bstone {

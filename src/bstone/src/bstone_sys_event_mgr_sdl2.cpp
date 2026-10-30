@@ -7,7 +7,6 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_event_mgr_sdl2.h"
 
 #include "SDL.h"
-#include <cstdio>
 #include "bstone_assert.h"
 #include "bstone_char_conv.h"
 #include "bstone_exception.h"
@@ -16,10 +15,8 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_event_mgr_null.h"
 #include "bstone_sys_logger.h"
 #include "bstone_sys_sdl2_subsystem.h"
-#if defined(__3DS__) || defined(_3DS)
 #include <3ds.h>
 extern void Quit();
-#endif
 
 #define BSTONE_SDL_2_0_4 SDL_VERSION_ATLEAST(2, 0, 4)
 
@@ -48,9 +45,7 @@ private:
 	bool do_is_initialized() const noexcept override;
 
 	bool do_poll_event(Event& e) override;
-	#if defined(__3DS__)
 		SDL_GameController* game_controller_{};
-	#endif
 
 private:
 	static KeyboardKey map_key_code(SDL_Keycode sdl_key_code) noexcept;
@@ -64,7 +59,6 @@ private:
 	static bool handle_event(const SDL_MouseMotionEvent& sdl_e, MouseMotionEvent& e) noexcept;
 	static bool handle_event(const SDL_MouseButtonEvent& sdl_e, MouseButtonEvent& e) noexcept;
 	static bool handle_event(const SDL_MouseWheelEvent& sdl_e, MouseWheelEvent& e) noexcept;
-	static bool handle_event(const SDL_WindowEvent& sdl_e, WindowEvent& e) noexcept;
 	static bool handle_event(const SDL_Event& sdl_e, Event& e) noexcept;
 };
 
@@ -82,21 +76,15 @@ try
 {
 	logger_.log_information("Start up SDL event manager.");
 
-	#if defined(__3DS__)
 		auto sdl2_subsystem = Sdl2Subsystem{SDL_INIT_GAMECONTROLLER};
-	#else
-		auto sdl2_subsystem = Sdl2Subsystem{SDL_INIT_EVENTS};
-	#endif
 
 	sdl2_subsystem.swap(sdl2_subsystem_);
 
-	#if defined(__3DS__)
 		if (SDL_NumJoysticks() > 0 && SDL_IsGameController(0))
 			game_controller_ = SDL_GameControllerOpen(0);
 
 		logger_.log_information(
 			game_controller_ ? "3DS controller initialized." : "3DS controller not detected.");
-	#endif
 	
 	is_initialized_ = true;
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
@@ -104,10 +92,8 @@ try
 Sdl2EventMgr::~Sdl2EventMgr()
 {
 	logger_.log_information("Shut down SDL event manager.");
-	#if defined(__3DS__)
 		if (game_controller_)
 			SDL_GameControllerClose(game_controller_);
-	#endif
 }
 
 void* Sdl2EventMgr::operator new(std::size_t size)
@@ -129,7 +115,6 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 {
 	BSTONE_ASSERT(is_initialized_);
 
-	#if defined(__3DS__) || defined(_3DS)
 
 		hidScanInput();
 
@@ -141,11 +126,9 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 			::Quit();
 		}
 
-	#endif
 
 	auto sdl_e = SDL_Event{};
 
-	#if defined(__3DS__) || defined(_3DS)
 		static bool first_poll = true;
 
 		if (first_poll)
@@ -153,37 +136,9 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 			logger_.log_information("3DS: Event polling active.");
 			first_poll = false;
 		}
-	#endif
 
 	while (SDL_PollEvent(&sdl_e))
 	{
-		#if defined(__3DS__) || defined(_3DS)
-
-			char message[96];
-
-			if (sdl_e.type == SDL_CONTROLLERBUTTONDOWN)
-			{
-				std::snprintf(message, sizeof(message),
-					"3DS: Controller button %u",
-					static_cast<unsigned>(sdl_e.cbutton.button));
-
-				logger_.log_information(message);
-			}
-			else if (sdl_e.type == SDL_JOYBUTTONDOWN)
-			{
-				std::snprintf(message, sizeof(message),
-					"3DS: Joystick button %u",
-					static_cast<unsigned>(sdl_e.jbutton.button));
-
-				logger_.log_information(message);
-			}
-			else if (sdl_e.type == SDL_KEYDOWN)
-			{
-				logger_.log_information("3DS: Keyboard key pressed.");
-			}
-
-		#endif
-		#if defined(__3DS__)
 				if (sdl_e.type == SDL_CONTROLLERBUTTONDOWN ||
 					sdl_e.type == SDL_CONTROLLERBUTTONUP)
 				{
@@ -230,7 +185,6 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 						return true;
 					}
 				}
-		#endif
 		if (handle_event(sdl_e, e))
 		{
 			e.common.timestamp = sdl_e.common.timestamp;
@@ -519,39 +473,14 @@ bool Sdl2EventMgr::handle_event(const SDL_MouseWheelEvent& sdl_e, MouseWheelEven
 	return true;
 }
 
-bool Sdl2EventMgr::handle_event(const SDL_WindowEvent& sdl_e, WindowEvent& e) noexcept
-{
-	auto is_handled = true;
-	e.id = sdl_e.windowID;
-
-	switch (sdl_e.event)
-	{
-		case SDL_WINDOWEVENT_FOCUS_GAINED:
-			e.event_type = WindowEventType::keyboard_focus_gained;
-			break;
-
-		case SDL_WINDOWEVENT_FOCUS_LOST:
-			e.event_type = WindowEventType::keyboard_focus_lost;
-			break;
-
-		default:
-			is_handled = false;
-			break;
-	}
-
-	if (!is_handled)
-	{
-		return false;
-	}
-
-	e.type = EventType::window;
-	return true;
-}
-
 bool Sdl2EventMgr::handle_event(const SDL_Event& sdl_e, Event& e) noexcept
 {
 	switch (sdl_e.type)
 	{
+		case SDL_QUIT:
+			e.common.type = EventType::quit;
+			return true;
+
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:
 			return handle_event(sdl_e.key, e.keyboard);
@@ -565,9 +494,6 @@ bool Sdl2EventMgr::handle_event(const SDL_Event& sdl_e, Event& e) noexcept
 
 		case SDL_MOUSEWHEEL:
 			return handle_event(sdl_e.wheel, e.mouse_wheel);
-
-		case SDL_WINDOWEVENT:
-			return handle_event(sdl_e.window, e.window);
 
 		default:
 			return false;

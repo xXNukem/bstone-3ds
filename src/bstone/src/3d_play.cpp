@@ -129,9 +129,6 @@ std::uint8_t lightson;
 //
 int controlx;
 int controly; // range from -100 to 100 per tic
-#ifdef __vita__
-int control2x; //left stick horizontal axis
-#endif
 ButtonState buttonstate;
 int strafe_value = 0;
 
@@ -179,7 +176,6 @@ constexpr std::uint8_t damage_color_g = 0x40;
 constexpr std::uint8_t damage_color_b = 0x40;
 
 
-PaletteShiftInfo palette_shift_info_;
 
 
 
@@ -652,16 +648,6 @@ void PollControls()
 	{
 		controly = min_control;
 	}
-#ifdef __vita__
-	if (control2x > max_control)
-	{
-		control2x = max_control;
-	}
-	else if (control2x < min_control)
-	{
-		control2x = min_control;
-	}
-#endif
 
 }
 
@@ -1534,7 +1520,6 @@ void RemoveObj(
 		BSTONE_THROW_STATIC_SOURCE("Tried to remove the player.");
 	}
 
-	vid_hw_on_remove_actor(*gone);
 
 	gone->state = nullptr;
 
@@ -1754,41 +1739,7 @@ void UpdatePaletteShifts()
 		red = 0;
 	}
 
-	if (vid_is_hw())
-	{
-		palette_shift_info_.is_bonus_shifted_ = false;
 
-		if (white > 0)
-		{
-			const auto alpha = static_cast<std::uint8_t>((0x80 * white) / NUMWHITESHIFTS);
-
-			palette_shift_info_.is_bonus_shifted_ = true;
-
-			palette_shift_info_.bonus_r_ = bonus_color_r;
-			palette_shift_info_.bonus_g_ = bonus_color_g;
-			palette_shift_info_.bonus_b_ = bonus_color_b;
-			palette_shift_info_.bonus_a_ = alpha;
-		}
-
-
-		palette_shift_info_.is_damage_shifted_ = false;
-
-		if (red > 0)
-		{
-			const auto alpha = static_cast<std::uint8_t>((0xFF * red) / NUMREDSHIFTS);
-
-			palette_shift_info_.is_damage_shifted_ = true;
-
-			palette_shift_info_.damage_r_ = damage_color_r;
-			palette_shift_info_.damage_g_ = damage_color_g;
-			palette_shift_info_.damage_b_ = damage_color_b;
-			palette_shift_info_.damage_a_ = alpha;
-		}
-
-		palshifted = (palette_shift_info_.is_bonus_shifted_ || palette_shift_info_.is_damage_shifted_);
-
-		return;
-	}
 
 	if (red > 0)
 	{
@@ -1821,20 +1772,12 @@ void UpdatePaletteShifts()
 
 void FinishPaletteShifts()
 {
-	if (vid_is_hw())
-	{
-		palette_shift_info_.is_bonus_shifted_ = false;
-		palette_shift_info_.is_damage_shifted_ = false;
 
-		return;
-	}
 
 	if (palshifted)
 	{
 		palshifted = false;
 
-		palette_shift_info_.is_bonus_shifted_ = false;
-		palette_shift_info_.is_damage_shifted_ = false;
 
 		// BBi
 #if 0
@@ -2173,9 +2116,4 @@ void CleanDrawPlayBorder()
 	DrawPlayBorder();
 	ThreeDRefresh();
 	DrawPlayBorder();
-}
-
-PaletteShiftInfo palette_shift_get_info() noexcept
-{
-	return palette_shift_info_;
 }

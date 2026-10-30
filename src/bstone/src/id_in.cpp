@@ -34,9 +34,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_char_conv.h"
 #include "bstone_globals.h"
 #include "bstone_sys_keyboard_key.h"
-#if defined(__3DS__) || defined(_3DS)
 #include <3ds.h>
-#endif
 
 #define KeyInt 9 // The keyboard ISR number
 
@@ -95,7 +93,6 @@ bool allcaps = false;
 
 Bindings in_bindings;
 bool in_is_mouse_grabbed = false;
-static bool in_last_is_mouse_grabbed = false;
 
 auto in_is_lalt_pressed = false;
 auto in_is_ralt_pressed = false;
@@ -126,7 +123,6 @@ static Direction DirTable[] = // Quick lookup for total direction
 	dir_West, dir_None, dir_East,
 	dir_SouthWest, dir_South, dir_SouthEast
 };
-
 
 namespace {
 
@@ -171,7 +167,6 @@ bool in_grab_mouse(bool grab)
 		return grab;
 	}
 
-	bstone::globals::sys_mouse_mgr->set_relative_mode(grab);
 	in_is_mouse_grabbed = grab;
 	return in_is_mouse_grabbed;
 }
@@ -179,17 +174,10 @@ bool in_grab_mouse(bool grab)
 // Internal routines
 
 // TODO
-#if 0
-#ifdef __vita__
-auto in_mouse_dx = 0;
-auto in_mouse_dy = 0;
-#endif
-#else
 namespace {
 auto in_mouse_dx = 0;
 auto in_mouse_dy = 0;
 } // namespace
-#endif
 
 namespace {
 
@@ -450,7 +438,6 @@ char in_keyboard_map_to_char(const bstone::sys::KeyboardEvent& e)
 		}
 	}
 
-
 	//
 	// Keys which depends on Caps Lock and Left or Right Shift.
 	//
@@ -539,14 +526,7 @@ void in_handle_keyboard(const bstone::sys::KeyboardEvent& e)
 	switch (key)
 	{
 // TODO
-#if 0
-#ifndef __vita__
-		// (vita) TranslateControllerEvent() does not currently affect the output of SDL_GetModState()
-		case ScanCode::sc_alt: is_pressed = ((key_mod & KMOD_ALT) != 0); break;
-#endif
-#else
 		case ScanCode::sc_alt: is_pressed = in_is_lalt_pressed || in_is_ralt_pressed; break;
-#endif
 		case ScanCode::sc_control: is_pressed = in_is_lctrl_pressed || in_is_rctrl_pressed; break;
 		default: is_pressed = e.is_pressed; break;
 	}
@@ -698,7 +678,6 @@ int INL_GetMouseButtons()
 
 	return result;
 
-
 }
 
 } // namespace
@@ -731,15 +710,6 @@ void INL_ShutKbd()
 //      INL_StartMouse() - Detects and sets up the mouse
 //
 ///////////////////////////////////////////////////////////////////////////
-bool INL_StartMouse()
-{
-	return true;
-}
-
-void INL_ShutMouse()
-{
-}
-
 ///////////////////////////////////////////////////////////////////////////
 //
 //      IN_Shutdown() - Shuts down the Input Mgr
@@ -753,8 +723,6 @@ void IN_Shutdown()
 	}
 
 	INL_ShutKbd();
-	INL_ShutMouse();
-	bstone::globals::sys_mouse_mgr = nullptr;
 	bstone::globals::sys_event_mgr = nullptr;
 	IN_Started = false;
 }
@@ -773,39 +741,6 @@ void IN_ClearKeysDown()
 
 namespace {
 
-void in_handle_window(const bstone::sys::WindowEvent& e)
-{
-	auto reset_state = false;
-
-	switch (e.event_type)
-	{
-		case bstone::sys::WindowEventType::keyboard_focus_gained:
-			reset_state = true;
-
-			if (in_last_is_mouse_grabbed)
-			{
-				in_last_is_mouse_grabbed = in_grab_mouse(true);
-			}
-
-			sd_mute(false);
-			break;
-
-		case bstone::sys::WindowEventType::keyboard_focus_lost:
-			reset_state = true;
-			in_last_is_mouse_grabbed = in_is_mouse_grabbed;
-			in_grab_mouse(false);
-			sd_mute(true);
-			break;
-
-		default: break;
-	}
-
-	if (reset_state)
-	{
-		in_reset_state();
-	}
-}
-
 } // namespace
 
 void in_handle_events()
@@ -818,23 +753,6 @@ void in_handle_events()
 		switch (e.common.type)
 		{
 // TODO
-#if 0
-#ifdef __vita__
-			case SDL_JOYBUTTONDOWN:
-			case SDL_JOYBUTTONUP:
-				TranslateControllerEvent(&e);
-				break;
-
-			case SDL_FINGERDOWN:
-			case SDL_FINGERUP:
-				TranslateTouchEvent(&e);
-				break;
-
-			case SDL_JOYAXISMOTION:
-				TranslateAnalogEvent(&e);
-				break;
-#endif
-#endif
 			case bstone::sys::EventType::keyboard:
 				in_handle_keyboard(e.keyboard);
 				break;
@@ -851,10 +769,6 @@ void in_handle_events()
 				in_handle_mouse_wheel(e.mouse_wheel);
 				break;
 
-			case bstone::sys::EventType::window:
-				in_handle_window(e.window);
-				break;
-
 			case bstone::sys::EventType::quit:
 				Quit();
 
@@ -868,7 +782,6 @@ void in_handle_events()
 		vid_schedule_take_screenshot();
 	}
 	
-	#if defined(__3DS__) || defined(_3DS)
 
 		const u32 keys = hidKeysHeld();
 
@@ -880,30 +793,20 @@ void in_handle_events()
 		previous_keys = keys;
 
 		// -----------------------------------------
-		// Salida de emergencia: START + SELECT.
-		// -----------------------------------------
-
-		if ((keys & (KEY_START | KEY_SELECT)) ==
-			(KEY_START | KEY_SELECT))
-		{
-			Quit();
-		}
-
-		// -----------------------------------------
 		// Movimiento original.
 		// -----------------------------------------
 
 		Keyboard[ScanCode::sc_w] =
-			(keys & KEY_DUP) != 0;
+			(keys & KEY_UP) != 0;
 
 		Keyboard[ScanCode::sc_s] =
-			(keys & KEY_DDOWN) != 0;
+			(keys & KEY_DOWN) != 0;
 
 		Keyboard[ScanCode::sc_left_arrow] =
-			(keys & KEY_DLEFT) != 0;
+			(keys & KEY_LEFT) != 0;
 
 		Keyboard[ScanCode::sc_right_arrow] =
-			(keys & KEY_DRIGHT) != 0;
+			(keys & KEY_RIGHT) != 0;
 
 		// -----------------------------------------
 		// A: disparar.
@@ -981,8 +884,6 @@ void in_handle_events()
 		{
 			Keyboard[ScanCode::sc_escape] = false;
 		}
-
-	#endif
 
 }
 
@@ -1066,16 +967,6 @@ void IN_ReadControl(std::int16_t, ControlInfo* control_info)
 			}
 
 // Enter/Space/Escape should be enough to enter/leave menu item. [#179]
-#if 0
-			if (Keyboard[def->button0])
-			{
-				buttons += 1 << 0;
-			}
-			if (Keyboard[def->button1])
-			{
-				buttons += 1 << 1;
-			}
-#endif
 
 			realdelta = false;
 
@@ -1241,16 +1132,12 @@ bool IN_UserInput(std::int32_t delay)
     {
         VL_WaitVBL(1);
 
-#if defined(__3DS__) || defined(_3DS)
-
         hidScanInput();
 
         if (hidKeysHeld() & KEY_A)
         {
             return true;
         }
-
-#endif
 
         if (IN_CheckAck())
         {
@@ -1295,21 +1182,9 @@ void IN_Startup()
 	}
 
 	INL_StartKbd();
-	MousePresent = INL_StartMouse();
+	MousePresent = false; // Nintendo 3DS input uses HID and SDL controller events.
 
 // TODO
-#if 0
-#ifdef __vita__
-	// Vita joysticks are treated separately from other kinds of joystick
-	if (!SDL_WasInit(SDL_INIT_JOYSTICK))
-	{
-		SDL_Init(SDL_INIT_JOYSTICK);
-	}
-
-	SDL_JoystickOpen(0);
-	SDL_JoystickEventState(SDL_ENABLE);
-#endif
-#endif
 
 	bstone::globals::sys_event_mgr = &bstone::globals::sys_system_mgr->get_event_mgr();
 
@@ -1317,8 +1192,6 @@ void IN_Startup()
 	{
 		BSTONE_THROW_STATIC_SOURCE("No event subsystem.");
 	}
-
-	bstone::globals::sys_mouse_mgr = &bstone::globals::sys_video_mgr->get_mouse_mgr();
 
 	IN_Started = true;
 }
@@ -1331,10 +1204,8 @@ void in_get_mouse_deltas(int& dx, int& dy)
 
 void in_clear_mouse_deltas()
 {
-#ifndef __vita__
 	in_mouse_dx = 0;
 	in_mouse_dy = 0;
-#endif
 }
 
 void in_clear_bindings()
@@ -1422,34 +1293,6 @@ void in_reset_binding_state(BindingId binding_id)
 	{
 		Keyboard[binding[1]] = false;
 	}
-}
-
-void in_reset_state()
-{
-	LastASCII = '\0';
-	LastScan = ScanCode::sc_none;
-	Keyboard.reset();
-
-	for (auto i = 0; i < NUMBUTTONS; ++i)
-	{
-		buttonstate[i] = false;
-		buttonheld[i] = false;
-	}
-
-	in_clear_mouse_deltas();
-
-	in_is_lalt_pressed = false;
-	in_is_ralt_pressed = false;
-	in_is_lctrl_pressed = false;
-	in_is_rctrl_pressed = false;
-	in_is_lshift_pressed = false;
-	in_is_rshift_pressed = false;
-	in_is_lgui_pressed = false;
-	in_is_rgui_pressed = false;
-
-	in_is_caps_lock_pressed = false;
-	in_is_scroll_lock_pressed = false;
-	in_is_num_lock_pressed = false;
 }
 
 namespace {

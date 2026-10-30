@@ -180,18 +180,12 @@ void test_w7b4aj4c9c7s6h7d()
 	tester.check(file_1.is_open());
 	tester.check(file_1.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_1.write_exactly(&buffer, 1));
-#endif // _WIN32
 
 	buffer = 0;
 	bstone::File file_2(test_data_file_name, bstone::file_flags_write | bstone::file_flags_shared);
 	tester.check(file_2.is_open());
 	tester.check(file_2.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_2.write_exactly(&buffer, 1));
-#endif // _WIN32
 }
 
 // ==========================================================================
@@ -414,9 +408,6 @@ void test_djm5h61o0zt02c0k()
 	tester.check(file_1.is_open());
 	tester.check(file_1.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_1.write_exactly(&buffer, 1));
-#endif // _WIN32
 
 	buffer = 0;
 	bstone::File file_2(test_data_file_name, bstone::file_flags_write | bstone::file_flags_shared, error_code);
@@ -424,9 +415,6 @@ void test_djm5h61o0zt02c0k()
 	tester.check(file_2.is_open());
 	tester.check(file_2.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_2.write_exactly(&buffer, 1));
-#endif // _WIN32
 }
 
 // ==========================================================================
@@ -666,18 +654,12 @@ void test_q1hgucxoq4ezusqi()
 	tester.check(file_1.is_open());
 	tester.check(file_1.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_1.write_exactly(&buffer, 1));
-#endif // _WIN32
 
 	buffer = 0;
 	bstone::File file_2;
 	tester.check(file_2.open(test_data_file_name, bstone::file_flags_write | bstone::file_flags_shared));
 	tester.check(file_2.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_2.write_exactly(&buffer, 1));
-#endif // _WIN32
 }
 
 // ==========================================================================
@@ -919,9 +901,6 @@ void test_8k4vayfahmm5qlho()
 	tester.check(file_1.is_open());
 	tester.check(file_1.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_1.write_exactly(&buffer, 1));
-#endif // _WIN32
 
 	buffer = 0;
 	bstone::File file_2;
@@ -929,9 +908,6 @@ void test_8k4vayfahmm5qlho()
 	tester.check(error_code == bstone::ec_file_none);
 	tester.check(file_2.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_2.write_exactly(&buffer, 1));
-#endif // _WIN32
 }
 
 // ==========================================================================
@@ -1227,9 +1203,6 @@ void test_y98do78y4khgs3ws()
 	tester.check(file_1.lock(bstone::file_lock_shared));
 	tester.check(file_1.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_1.write_exactly(&buffer, 1));
-#endif // _WIN32
 
 	buffer = 0;
 	bstone::File file_2;
@@ -1238,9 +1211,6 @@ void test_y98do78y4khgs3ws()
 	tester.check(file_2.lock(bstone::file_lock_shared));
 	tester.check(file_2.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_2.write_exactly(&buffer, 1));
-#endif // _WIN32
 }
 
 // ==========================================================================
@@ -1285,9 +1255,6 @@ void test_pefnjcd15eft7u2y()
 	tester.check(file_1.lock(bstone::file_lock_shared));
 	tester.check(file_1.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_1.write_exactly(&buffer, 1));
-#endif // _WIN32
 
 	buffer = 0;
 	bstone::File file_2;
@@ -1296,9 +1263,6 @@ void test_pefnjcd15eft7u2y()
 	tester.check(file_2.lock(bstone::file_lock_shared));
 	tester.check(file_2.read_exactly(&buffer, 1));
 	tester.check(buffer == '1');
-#ifdef _WIN32 // POSIX-, BSD- and OFD-lock fails here.
-	tester.check(!file_2.write_exactly(&buffer, 1));
-#endif // _WIN32
 }
 
 // ==========================================================================

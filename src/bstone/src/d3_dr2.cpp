@@ -111,9 +111,6 @@ void AsmRefresh()
 
 #endif
 
-    vid_hw_clear_wall_render_list();
-    vid_hw_clear_pushwall_render_list();
-    vid_hw_clear_door_render_list();
 
     for (pixx = 0; pixx < viewwidth; ++pixx)
     {
@@ -683,4 +680,3 @@ void AsmRefresh()
         }
     }
 }
-
