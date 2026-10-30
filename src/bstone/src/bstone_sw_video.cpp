@@ -26,7 +26,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_video_cvars.h"
 #include <atomic>
 #include <array>
-#include "bstone_r3r_utils.h"
 
 #include "bstone_sys_video_mgr.h"
 #include "bstone_sys_window_mgr.h"
@@ -270,7 +269,6 @@ public:
 	void apply_external_textures() override;
 	void update_samplers() override;
 
-	const R3rDeviceFeatures& get_device_features() const noexcept override;
 
 	//
 	// HW
@@ -342,7 +340,6 @@ private:
 	//
 
 	Rgba8Palette default_palette_{};
-	R3rDeviceFeatures device_features_{};
 
 	//
 	// HW
@@ -1268,17 +1265,6 @@ try {
 
 void SwVideo::apply_window_mode()
 try {
-	sys::Window& window = *window_;
-
-	auto param = R3rUtilsSetWindowModeParam{};
-	param.display_mode.width = vid_cfg_get_width();
-	param.display_mode.height = vid_cfg_get_height();
-	param.display_mode.refresh_rate = vid_cfg_get_refresh_rate();
-	param.fullscreen_mode = R3rUtils::get_fullscreen_mode_from_cvar();
-	R3rUtils::set_window_mode(window, param);
-
-	R3rUtils::set_fullscreen_mode_cvar_from_window(window);
-
 	calculate_dimensions();
 	vid_initialize_vanilla_raycaster();
 	vid_initialize_common();
@@ -1472,11 +1458,6 @@ void SwVideo::apply_texture_upscale() {}
 void SwVideo::apply_external_textures() {}
 
 void SwVideo::update_samplers() {}
-
-const R3rDeviceFeatures& SwVideo::get_device_features() const noexcept
-{
-	return device_features_;
-}
 
 //
 // HW

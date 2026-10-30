@@ -18,7 +18,7 @@ SPDX-License-Identifier: MIT
 #include "bstone_single_pool_resource.h"
 #include "bstone_sys_detail_sdl2.h"
 #include "bstone_sys_exception_sdl2.h"
-#include "bstone_sys_gl_context_sdl2.h"
+
 #include "bstone_sys_renderer_sdl2.h"
 
 namespace bstone {
@@ -385,7 +385,8 @@ try {
 
 GlContextUPtr Sdl2Window::do_make_gl_context()
 try {
-	return make_sdl2_gl_context(logger_, *sdl_window_);
+    BSTONE_THROW_STATIC_SOURCE(
+        "OpenGL is not supported on Nintendo 3DS.");
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
 WindowSize Sdl2Window::do_gl_get_drawable_size()

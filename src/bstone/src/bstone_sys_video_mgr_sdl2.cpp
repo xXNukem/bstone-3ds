@@ -19,11 +19,10 @@ SPDX-License-Identifier: MIT
 #include "bstone_sys_logger.h"
 #include "bstone_sys_detail_sdl2.h"
 #include "bstone_sys_exception_sdl2.h"
-#include "bstone_sys_gl_current_context_sdl2.h"
+
 #include "bstone_sys_limits_sdl2.h"
 #include "bstone_sys_video_mgr_null.h"
 #include "bstone_sys_mouse_mgr_sdl2.h"
-#include "bstone_sys_vulkan_mgr_sdl2.h"
 #include "bstone_sys_window_mgr_sdl2.h"
 #include "bstone_sys_sdl2_subsystem.h"
 
@@ -97,7 +96,7 @@ try
 
 	mouse_mgr_ = make_sdl2_mouse_mgr(logger);
 	window_mgr_ = make_sdl2_window_mgr(logger);
-	gl_current_context_ = make_sdl2_gl_current_context(logger_);
+	
 	sdl2_subsystem_.swap(sdl2_subsystem);
 	is_initialized_ = true;
 
@@ -162,21 +161,14 @@ try {
 
 GlCurrentContext& Sdl2VideoMgr::do_get_gl_current_context()
 {
-	BSTONE_ASSERT(is_initialized_);
-
-	return *gl_current_context_;
+    BSTONE_THROW_STATIC_SOURCE(
+        "OpenGL is not supported on Nintendo 3DS.");
 }
 
 VulkanMgr& Sdl2VideoMgr::do_get_vulkan_mgr()
 {
-	BSTONE_ASSERT(is_initialized_);
-
-	if (vulkan_mgr_ == nullptr)
-	{
-		vulkan_mgr_ = make_vulkan_mgr(logger_);
-	}
-
-	return *vulkan_mgr_;
+    BSTONE_THROW_STATIC_SOURCE(
+        "Vulkan is not supported on Nintendo 3DS.");
 }
 
 MouseMgr& Sdl2VideoMgr::do_get_mouse_mgr()

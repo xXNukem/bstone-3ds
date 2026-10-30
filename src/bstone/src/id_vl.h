@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 
 #include <cstdint>
+#include <memory>
 
 #include <array>
 #include <vector>
@@ -18,9 +19,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_extent_2d.h"
 #include "bstone_ref_values.h"
 #include "bstone_renderer_type.h"
-#include "bstone_r3r_types.h"
 #include "bstone_rgb_palette.h"
-#include "bstone_hw_texture_mgr.h"
 #include "bstone_cvar_mgr.h"
 #include "bstone_string_view.h"
 #include "bstone_fizzle_fx.h"
@@ -31,6 +30,7 @@ namespace bstone
 
 
 class TextWriter;
+class SpriteCache;
 
 
 } // bstone
@@ -61,8 +61,6 @@ struct VideoModeCfg
 	int refresh_rate;
 	WindowMode window_mode;
 	bool is_vsync_;
-	bstone::R3rAaType aa_type;
-	int aa_degree_;
 }; // VideoModeCfg
 
 bool operator==(
@@ -76,14 +74,8 @@ bool operator!=(
 
 extern std::uint8_t* vga_memory;
 
-constexpr auto vid_min_aa = 1;
-constexpr auto vid_max_aa = 32;
 
-constexpr auto vid_min_anisotropic = 1;
-constexpr auto vid_max_anisotropic = 16;
 
-constexpr auto vid_upscale_min_degree = 2;
-constexpr auto vid_upscale_max_degree = 6;
 
 
 struct VidLayout
@@ -365,30 +357,6 @@ void vid_cfg_set_refresh_rate(int refresh_rate);
 WindowMode vid_cfg_get_window_mode();
 void vid_cfg_set_window_mode(WindowMode window_mode);
 
-bstone::R3rFilterType vid_cfg_get_2d_texture_filter() noexcept;
-void vid_cfg_set_2d_texture_filter(bstone::R3rFilterType filter);
-
-bstone::R3rFilterType vid_cfg_get_3d_texture_image_filter() noexcept;
-void vid_cfg_set_3d_texture_image_filter(bstone::R3rFilterType filter);
-
-bstone::R3rFilterType vid_cfg_get_3d_texture_mipmap_filter() noexcept;
-void vid_cfg_set_3d_texture_mipmap_filter(bstone::R3rFilterType filter);
-
-int vid_cfg_get_3d_texture_anisotropy() noexcept;
-void vid_cfg_set_3d_texture_anisotropy(int anisotropy);
-
-bstone::R3rAaType vid_cfg_get_aa_type() noexcept;
-void vid_cfg_set_aa_type(bstone::R3rAaType aa_type);
-
-int vid_cfg_get_aa_degree() noexcept;
-void vid_cfg_set_aa_degree(int degree);
-
-bstone::HwTextureMgrUpscaleFilterType vid_cfg_get_texture_upscale_type() noexcept;
-void vid_cfg_set_texture_upscale_type(bstone::HwTextureMgrUpscaleFilterType filter);
-
-int vid_cfg_get_texture_upscale_xbrz_degree() noexcept;
-void vid_cfg_set_texture_upscale_xbrz_degree(int degree);
-
 int vid_cfg_get_filler_color_index() noexcept;
 void vid_cfg_set_filler_color_index(int index);
 
@@ -561,8 +529,6 @@ void vid_calculate_vga_dimensions() noexcept;
 
 std::string vid_to_string(bool value);
 std::string vid_to_string(int value);
-std::string vid_to_string(const bstone::R3rFilterType filter_type);
-std::string vid_to_string(bstone::R3rType renderer_type);
 
 bool vid_is_hw();
 

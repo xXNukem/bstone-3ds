@@ -57,10 +57,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_3ds_intro.h"
 #endif
 
-#ifdef __vita__
-#include <vitasdk.h>
-int _newlib_heap_size_user = 192 * 1024 * 1024;
-#endif
 
 
 namespace {
@@ -9676,19 +9672,11 @@ void SetViewSize()
     viewheight /= alignment;
     viewheight *= alignment;
 
-#ifdef __vita__
-    vga_3d_view_top_y =
-        (ref_3d_view_top_y * vga_height) / vga_ref_height + 1;
-
-    vga_3d_view_bottom_y =
-        vga_3d_view_top_y + viewheight + 1;
-#else
     vga_3d_view_top_y =
         (ref_3d_view_top_y * vga_height) / vga_ref_height;
 
     vga_3d_view_bottom_y =
         vga_3d_view_top_y + viewheight;
-#endif
 
 #endif
 
@@ -9974,40 +9962,6 @@ int main(
     osSetSpeedupEnable(true);
 #endif
 
-#ifdef __vita__
-
-	scePowerSetArmClockFrequency(444);
-	scePowerSetBusClockFrequency(222);
-	scePowerSetGpuClockFrequency(222);
-	scePowerSetGpuXbarClockFrequency(166);
-	sceAppUtilInit(&(SceAppUtilInitParam)
-	{}, & (SceAppUtilBootParam)
-	{});
-	SceAppUtilAppEventParam eventParam;
-	memset(&eventParam, 0, sizeof(SceAppUtilAppEventParam));
-	sceAppUtilReceiveAppEvent(&eventParam);
-
-	if (eventParam.type == 0x05)
-	{
-		argc++;
-		const char* pargv[argc];
-		for (int i = 0; i < argc - 1; i++)
-		{
-			pargv[i] = argv[i];
-		}
-#ifdef VITATEST
-		const char* newarg = "--cheats";
-#else
-		const char* newarg = "--ps";
-#endif
-		pargv[argc - 1] = newarg;
-		g_args.initialize(argc, pargv);
-	}
-	else
-	{
-		g_args.initialize(argc, argv);
-	}
-#else
 
 #if defined(__3DS__) || defined(_3DS)
 
@@ -10040,7 +9994,6 @@ int main(
     g_args.initialize(argc, argv);
 #endif
 
-#endif
 
 	const auto opt_is_log_sync = g_args.has_option("log_sync");
 	const auto opt_is_log_flush_every_message = g_args.has_option("log_flush_every_message");
@@ -10874,9 +10827,6 @@ const std::string& get_profile_dir()
 
 // FIXME
 #if 0
-#ifdef __vita__
-		profile_dir = "ux0:/data/bstone/";
-#endif
 #endif
 
 		profile_dir = bstone::fs_utils::append_path_separator(profile_dir);
@@ -10917,9 +10867,6 @@ const std::string& get_default_data_dir()
 
 		result = bstone::fs_utils::get_working_dir();
 
-#ifdef __vita__
-		result = "ux0:/data/bstone/";
-#endif
 	}
 
 	return result;

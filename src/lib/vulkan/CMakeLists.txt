@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.5.0 FATAL_ERROR)
 project(bstone_vulkan VERSION 1.0.0 LANGUAGES CXX)
 message(STATUS "[bstone_vulkan] v${PROJECT_VERSION}")
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
+    add_library(bstone_vulkan INTERFACE)
+    add_library(bstone::vulkan ALIAS bstone_vulkan)
+    target_compile_definitions(bstone_vulkan INTERFACE VK_NO_PROTOTYPES)
+    target_include_directories(bstone_vulkan INTERFACE include)
+    return()
+endif ()
+
 add_library(bstone_vulkan STATIC "")
 add_library(bstone::vulkan ALIAS bstone_vulkan)
 target_compile_definitions(bstone_vulkan INTERFACE VK_NO_PROTOTYPES)

@@ -27,7 +27,6 @@ message(STATUS "[bstone] v${BSTONE_VERSION}")
 # Options.
 #
 option(BSTONE_USE_STATIC_LINKING "Link build statically." OFF)
-option(BSTONE_PANDORA "Build for Pandora." OFF)
 option(BSTONE_USE_PCH "Use precompiled headers if available." OFF)
 option(BSTONE_USE_MULTI_PROCESS_COMPILATION "Use multi-process compilation." ON)
 option(BSTONE_MORE_COMPILER_WARNINGS "Enables more compiler warnings." OFF)
@@ -191,12 +190,6 @@ target_compile_definitions(bstone
 		$<$<BOOL:${BSTONE_VULKAN_COMPILE_SHADERS}>:BSTONE_VULKAN_COMPILE_SHADERS>
 )
 
-if (BSTONE_PANDORA)
-	target_compile_definitions(bstone
-		PRIVATE
-			BSTONE_PANDORA
-	)
-endif ()
 
 #
 # Target compile options.
@@ -226,19 +219,6 @@ if (MSVC)
 	endif ()
 endif ()
 
-if (BSTONE_PANDORA)
-	target_compile_options(bstone
-		PRIVATE
-			-fsigned-char
-			-fsigned-char
-			-mcpu=cortex-a8
-			-mfpu=neon
-			-mfloat-abi=softfp
-			-ffast-math
-			-fsingle-precision-constant
-			-fno-inline-functions
-	)
-endif ()
 
 #
 # Target link options.
@@ -284,24 +264,8 @@ target_link_libraries(bstone
 		bstone::lib::nuked_opl3
 		bstone::lib::openal_soft
 		bstone::lib::stb
-		bstone::lib::xbrz
-		bstone::vulkan
 )
 
-if (BSTONE_PANDORA)
-	target_link_libraries(bstone
-		PRIVATE
-			Xext
-			Xau
-			Xdmcp
-			X11
-			GLESv2
-			EGL
-			IMGegl
-			srv_um
-			ts
-	)
-endif ()
 
 #
 # Target include directories.
@@ -315,12 +279,6 @@ target_include_directories(bstone
 		$<$<BOOL:${BSTONE_VULKAN_COMPILE_SHADERS}>:${bstone_vulkan_shaders_output_dir}>
 )
 
-if (BSTONE_PANDORA)
-	target_include_directories(bstone
-		PRIVATE
-			$ENV{PNDSDK}
-	)
-endif ()
 
 if (BSTONE_USE_PCH AND NOT (${CMAKE_VERSION} VERSION_LESS "3.16.0"))
 	target_precompile_headers(bstone
@@ -453,7 +411,6 @@ set(BSTONE_LIB_MISC_SOURCES
 	src/bstone_file_posix.cpp
 	src/bstone_file_stream.cpp
 	src/bstone_file_stream.h
-	src/bstone_file_win32.cpp
 	src/bstone_fixed_pool_resource.cpp
 	src/bstone_fixed_pool_resource.h
 	src/bstone_four_cc.cpp
@@ -461,7 +418,6 @@ set(BSTONE_LIB_MISC_SOURCES
 	src/bstone_fs.cpp
 	src/bstone_fs.h
 	src/bstone_fs_posix.cpp
-	src/bstone_fs_win32.cpp
 	src/bstone_generic_pool_resource.cpp
 	src/bstone_generic_pool_resource.h
 	src/bstone_memory.cpp
@@ -484,7 +440,6 @@ set(BSTONE_LIB_MISC_SOURCES
 	src/bstone_shared_library.cpp
 	src/bstone_shared_library.h
 	src/bstone_shared_library_posix.cpp
-	src/bstone_shared_library_win32.cpp
 	src/bstone_single_pool_resource.cpp
 	src/bstone_single_pool_resource.h
 	src/bstone_source_location.cpp
@@ -524,24 +479,10 @@ set(BSTONE_LIB_MISC_SOURCES
 	src/bstone_uuid.cpp
 	src/bstone_uuid.h
 	src/bstone_uuid_unix.cpp
-	src/bstone_uuid_win32.cpp
-	src/bstone_win32_advapi32_symbols.cpp
-	src/bstone_win32_advapi32_symbols.h
-	src/bstone_win32_com.cpp
-	src/bstone_win32_com.h
-	src/bstone_win32_os_version.cpp
-	src/bstone_win32_os_version.h
-	src/bstone_win32_registry_key.cpp
-	src/bstone_win32_registry_key.h
-	src/bstone_win32_wstring.cpp
-	src/bstone_win32_wstring.h
-	src/bstone_win32_unique_resources.cpp
-	src/bstone_win32_unique_resources.h
 	src/bstone_zstring_view.cpp
 	src/bstone_zstring_view.h
 	src/bstone_process.h
 	src/bstone_process_posix.cpp
-	src/bstone_process_win32.cpp
 )
 
 target_sources(bstone PRIVATE ${BSTONE_LIB_MISC_SOURCES})
@@ -550,10 +491,6 @@ source_group("lib/misc" FILES ${BSTONE_LIB_MISC_SOURCES})
 # ---------------------------------------------------------------------------
 
 set(BSTONE_BSTONE_RENDERER_SOURCES
-	src/bstone_hw_shader_registry.cpp
-	src/bstone_hw_shader_registry.h
-	src/bstone_hw_texture_mgr.cpp
-	src/bstone_hw_texture_mgr.h
 	src/bstone_missing_sprite_64x64_image.cpp
 	src/bstone_missing_sprite_64x64_image.h
 	src/bstone_missing_wall_64x64_image.cpp
@@ -567,32 +504,6 @@ source_group("bstone/renderer" FILES ${BSTONE_BSTONE_RENDERER_SOURCES})
 # ---------------------------------------------------------------------------
 
 set(BSTONE_BSTONE_RENDERER_3D_SOURCES
-	src/bstone_r3r.cpp
-	src/bstone_r3r.h
-	src/bstone_r3r_buffer.cpp
-	src/bstone_r3r_buffer.h
-	src/bstone_r3r_cmd_buffer.cpp
-	src/bstone_r3r_cmd_buffer.h
-	src/bstone_r3r_limits.cpp
-	src/bstone_r3r_limits.h
-	src/bstone_r3r_mgr.cpp
-	src/bstone_r3r_mgr.h
-	src/bstone_r3r_r2_texture.cpp
-	src/bstone_r3r_r2_texture.h
-	src/bstone_r3r_sampler.cpp
-	src/bstone_r3r_sampler.h
-	src/bstone_r3r_shader.cpp
-	src/bstone_r3r_shader.h
-	src/bstone_r3r_shader_stage.cpp
-	src/bstone_r3r_shader_stage.h
-	src/bstone_r3r_shader_var.cpp
-	src/bstone_r3r_shader_var.h
-	src/bstone_r3r_tests.h
-	src/bstone_r3r_types.h
-	src/bstone_r3r_utils.cpp
-	src/bstone_r3r_utils.h
-	src/bstone_r3r_vertex_input.cpp
-	src/bstone_r3r_vertex_input.h
 )
 
 target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_SOURCES})
@@ -601,22 +512,6 @@ source_group("bstone/renderer/3d" FILES ${BSTONE_BSTONE_RENDERER_3D_SOURCES})
 # ---------------------------------------------------------------------------
 
 set(BSTONE_BSTONE_RENDERER_3D_NULL_SOURCES
-	src/bstone_null_r3r.cpp
-	src/bstone_null_r3r.h
-	src/bstone_null_r3r_buffer.cpp
-	src/bstone_null_r3r_buffer.h
-	src/bstone_null_r3r_r2_texture.cpp
-	src/bstone_null_r3r_r2_texture.h
-	src/bstone_null_r3r_sampler.cpp
-	src/bstone_null_r3r_sampler.h
-	src/bstone_null_r3r_shader.cpp
-	src/bstone_null_r3r_shader.h
-	src/bstone_null_r3r_shader_stage.cpp
-	src/bstone_null_r3r_shader_stage.h
-	src/bstone_null_r3r_shader_var.cpp
-	src/bstone_null_r3r_shader_var.h
-	src/bstone_null_r3r_vertex_input.cpp
-	src/bstone_null_r3r_vertex_input.h
 )
 
 target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_NULL_SOURCES})
@@ -624,92 +519,16 @@ source_group("bstone/renderer/3d/null" FILES ${BSTONE_BSTONE_RENDERER_3D_NULL_SO
 
 # ---------------------------------------------------------------------------
 
-set(BSTONE_BSTONE_RENDERER_3D_GL_SOURCES
-	src/bstone_gl_r3r.cpp
-	src/bstone_gl_r3r.h
-	src/bstone_gl_r3r_api.cpp
-	src/bstone_gl_r3r_api.h
-	src/bstone_gl_r3r_buffer.cpp
-	src/bstone_gl_r3r_buffer.h
-	src/bstone_gl_r3r_context.cpp
-	src/bstone_gl_r3r_context.h
-	src/bstone_gl_r3r_device_features.h
-	src/bstone_gl_r3r_error.cpp
-	src/bstone_gl_r3r_error.h
-	src/bstone_gl_r3r_extension_mgr.cpp
-	src/bstone_gl_r3r_extension_mgr.h
-	src/bstone_gl_r3r_r2_texture.cpp
-	src/bstone_gl_r3r_r2_texture.h
-	src/bstone_gl_r3r_sampler.cpp
-	src/bstone_gl_r3r_sampler.h
-	src/bstone_gl_r3r_sampler_mgr.cpp
-	src/bstone_gl_r3r_sampler_mgr.h
-	src/bstone_gl_r3r_shader.cpp
-	src/bstone_gl_r3r_shader.h
-	src/bstone_gl_r3r_shader_stage.cpp
-	src/bstone_gl_r3r_shader_stage.h
-	src/bstone_gl_r3r_shader_var.cpp
-	src/bstone_gl_r3r_shader_var.h
-	src/bstone_gl_r3r_utils.cpp
-	src/bstone_gl_r3r_utils.h
-	src/bstone_gl_r3r_version.h
-	src/bstone_gl_r3r_vertex_input.cpp
-	src/bstone_gl_r3r_vertex_input.h
-	src/bstone_gl_r3r_vertex_input_mgr.cpp
-	src/bstone_gl_r3r_vertex_input_mgr.h
-)
 
-target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_GL_SOURCES})
-source_group("bstone/renderer/3d/gl" FILES ${BSTONE_BSTONE_RENDERER_3D_GL_SOURCES})
-
-# ---------------------------------------------------------------------------
-
-set(BSTONE_BSTONE_RENDERER_3D_VK_SOURCES
-	src/bstone_vk_r3r.cpp
-	src/bstone_vk_r3r.h
-	src/bstone_vk_r3r_buffer.cpp
-	src/bstone_vk_r3r_buffer.h
-	src/bstone_vk_r3r_context.cpp
-	src/bstone_vk_r3r_context.h
-	src/bstone_vk_r3r_enum_strings.cpp
-	src/bstone_vk_r3r_enum_strings.h
-	src/bstone_vk_r3r_array_extractor.cpp
-	src/bstone_vk_r3r_array_extractor.h
-	src/bstone_vk_r3r_info.cpp
-	src/bstone_vk_r3r_info.h
-	src/bstone_vk_r3r_observer.cpp
-	src/bstone_vk_r3r_observer.h
-	src/bstone_vk_r3r_pipeline.cpp
-	src/bstone_vk_r3r_pipeline.h
-	src/bstone_vk_r3r_pipeline_mgr.cpp
-	src/bstone_vk_r3r_pipeline_mgr.h
-	src/bstone_vk_r3r_r2_texture.cpp
-	src/bstone_vk_r3r_r2_texture.h
-	src/bstone_vk_r3r_raii.cpp
-	src/bstone_vk_r3r_raii.h
-	src/bstone_vk_r3r_sampler.cpp
-	src/bstone_vk_r3r_sampler.h
-	src/bstone_vk_r3r_shader.cpp
-	src/bstone_vk_r3r_shader.h
-	src/bstone_vk_r3r_shader_stage.cpp
-	src/bstone_vk_r3r_shader_stage.h
-	src/bstone_vk_r3r_shader_var.cpp
-	src/bstone_vk_r3r_shader_var.h
-	src/bstone_vk_r3r_vertex_input.cpp
-	src/bstone_vk_r3r_vertex_input.h
-)
-
-target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_VK_SOURCES})
-source_group("bstone/renderer/3d/vk" FILES ${BSTONE_BSTONE_RENDERER_3D_VK_SOURCES})
-
-# ---------------------------------------------------------------------------
 
 set(BSTONE_BSTONE_RENDERER_3D_VK_SHADER_SOURCES
 	src/resources/vulkan/src/default_frag.txt
 	src/resources/vulkan/src/default_vert.txt
 )
 
-target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_VK_SHADER_SOURCES})
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
+    target_sources(bstone PRIVATE ${BSTONE_BSTONE_RENDERER_3D_VK_SHADER_SOURCES})
+endif ()
 source_group("bstone/renderer/3d/vk/shaders" FILES ${BSTONE_BSTONE_RENDERER_3D_VK_SHADER_SOURCES})
 
 # ---------------------------------------------------------------------------
@@ -792,12 +611,6 @@ set(BSTONE_BSTONE_SYS_SDL2_SOURCES
 	src/bstone_sys_event_mgr_sdl2.h
 	src/bstone_sys_exception_sdl2.cpp
 	src/bstone_sys_exception_sdl2.h
-	src/bstone_sys_gl_context_sdl2.cpp
-	src/bstone_sys_gl_context_sdl2.h
-	src/bstone_sys_gl_current_context_sdl2.cpp
-	src/bstone_sys_gl_current_context_sdl2.h
-	src/bstone_sys_gl_symbol_resolver_sdl2.cpp
-	src/bstone_sys_gl_symbol_resolver_sdl2.h
 	src/bstone_sys_limits_sdl2.h
 	src/bstone_sys_message_box_sdl2.cpp
 	src/bstone_sys_mouse_mgr_sdl2.cpp
@@ -818,14 +631,13 @@ set(BSTONE_BSTONE_SYS_SDL2_SOURCES
 	src/bstone_sys_texture_sdl2.h
 	src/bstone_sys_video_mgr_sdl2.cpp
 	src/bstone_sys_video_mgr_sdl2.h
-	src/bstone_sys_vulkan_mgr_sdl2.cpp
-	src/bstone_sys_vulkan_mgr_sdl2.h
 	src/bstone_sys_window_mgr_sdl2.cpp
 	src/bstone_sys_window_mgr_sdl2.h
 	src/bstone_sys_window_rounded_corner_mgr_sdl2.cpp
 	src/bstone_sys_window_sdl2.cpp
 	src/bstone_sys_window_sdl2.h
 )
+
 
 target_sources(bstone PRIVATE ${BSTONE_BSTONE_SYS_SDL2_SOURCES})
 source_group("bstone/sys/sdl2" FILES ${BSTONE_BSTONE_SYS_SDL2_SOURCES})
@@ -911,8 +723,6 @@ set(BSTONE_BSTONE_VIDEO_SOURCES
 	src/bstone_fizzle_fx.h
 	src/bstone_generic_fizzle_fx.cpp
 	src/bstone_generic_fizzle_fx.h
-	src/bstone_hw_video.cpp
-	src/bstone_hw_video.h
 	src/bstone_ps_fizzle_fx.cpp
 	src/bstone_ps_fizzle_fx.h
 	src/bstone_sw_video.cpp
@@ -1111,3 +921,23 @@ target_link_libraries(bstone PRIVATE
     ctru
     m
 )
+# Native Nintendo 3DS components.
+if (CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
+    target_sources(bstone PRIVATE
+        src/bstone_3ds_automap.cpp
+        src/bstone_3ds_messages.cpp
+        src/bstone_3ds_intro.cpp
+        src/bstone_3ds_hud.cpp
+    )
+endif ()
+
+# Vulkan types remain in shared BStone interfaces.
+# Nintendo 3DS does not build or link a Vulkan backend.
+if (CMAKE_SYSTEM_NAME STREQUAL "Nintendo3DS")
+    target_include_directories(bstone PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/lib/vulkan/include"
+    )
+    target_compile_definitions(bstone PRIVATE VK_NO_PROTOTYPES)
+else ()
+    target_link_libraries(bstone PRIVATE bstone::vulkan)
+endif ()

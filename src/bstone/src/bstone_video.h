@@ -169,7 +169,6 @@ public:
 
 	virtual void update_samplers() = 0;
 
-	virtual const bstone::R3rDeviceFeatures& get_device_features() const noexcept = 0;
 
 	//
 	// HW
