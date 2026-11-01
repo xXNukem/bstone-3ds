@@ -27,8 +27,6 @@ The port includes a redesigned dual-screen interface, a permanent automap, adapt
 
 Other models in the Nintendo 3DS family have not been tested yet, so their compatibility still needs to be confirmed.
 
-Stereoscopic 3D requires a console with a 3D display.
-
 You'll need a homebrew-capable console and the Homebrew Launcher.
 
 ## Installation
