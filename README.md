@@ -201,9 +201,9 @@ The port uses separate perspectives for the left and right eyes rather than simp
 
 Walls, enemies, objects and weapons are presented stereoscopically, with depth controlled by the physical 3D slider.
 
-The interface also uses subtle depth effects, with more conservative settings for text-heavy screens such as mission briefings and instructions.
+The interface also uses subtle depth effects.
 
-Stereoscopic rendering requires additional processing power, so performance can vary depending on the scene.
+Stereoscopic rendering requires additional processing power, so performance can vary depending on the scene. But the game keeps reaching at least 60 FPS most of the time.
 
 ## Video and sound
 
