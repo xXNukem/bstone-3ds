@@ -109,6 +109,8 @@ struct CustomCtrls
 	std::int16_t allowed[4];
 }; // CustomCtrls
 
+std::string cp_get_terminal_label(const CP_iteminfo& info, const CP_itemtype* items, int index);
+
 extern CP_itemtype MainMenu[];
 extern CP_itemtype NewEMenu[];
 extern CP_iteminfo MainItems;
@@ -143,7 +145,8 @@ void HelpPresenter(
 	const char* fname,
 	bool continuekeys,
 	std::uint16_t id_cache,
-	bool startmusic);
+	bool startmusic,
+    const char* section = nullptr);
 
 void ShadowPrint(
 	const char* string,

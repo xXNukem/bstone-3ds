@@ -5,5 +5,6 @@ build/
 
 # Nintendo 3DS - Archivos locales
 /build-3ds/
+/build-3ds-menu-redesign/
 *.bak-3ds
 *.gpu2d-ok

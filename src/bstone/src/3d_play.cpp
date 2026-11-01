@@ -7,6 +7,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 
 #include <cstring>
+#include <algorithm>
 
 #include "audio.h"
 #include "id_ca.h"
@@ -440,10 +441,6 @@ void PollKeyboardButtons()
 	}
 }
 
-void PollMouseButtons()
-{
-}
-
 void PollKeyboardMove()
 {
 	bool is_running = in_is_binding_pressed(e_bi_run);
@@ -501,44 +498,16 @@ void PollKeyboardMove()
 			strafe_value += value;
 		}
 	}
-}
 
-void PollMouseMove()
-{
-	int mousexmove;
-	int mouseymove;
-
-	in_get_mouse_deltas(mousexmove, mouseymove);
-	in_clear_mouse_deltas();
-
-	auto is_running = in_is_binding_pressed(e_bi_run);
-
-	if (gp_is_always_run())
-	{
-		is_running = !is_running;
-	}
-
-	const auto move_scale = 1.0 + (in_get_mouse_sensitivity() / 6.0);
-
-	auto delta_x = static_cast<double>(mousexmove);
-	auto delta_y = static_cast<double>(mouseymove);
-
-	if (is_running)
-	{
-// Don't increase turn speed when running (#474).
-#if 0
-		delta_x *= 1.5;
-#endif
-		delta_y *= 5.0;
-	}
-
-	delta_y = 0.0;
-
-	delta_x *= move_scale;
-	delta_y *= move_scale;
-
-	controlx += static_cast<int>(delta_x);
-	controly += static_cast<int>(delta_y);
+    if (in_get_control_scheme() != InControlScheme::classic)
+    {
+        int forward, strafe, turn;
+        in_get_3ds_motion(forward, strafe, turn);
+        controly -= value * forward / 1000;
+        strafe_value += value * strafe / 1000;
+        // A/Y and C-Stick can coexist without doubling the maximum turn rate.
+        controlx = std::max(-value, std::min(value, controlx + value * turn / 1000));
+    }
 }
 
 /*
@@ -609,20 +578,12 @@ void PollControls()
 	//
 	PollKeyboardButtons();
 
-	if (in_is_mouse_enabled())
-	{
-		PollMouseButtons();
-	}
 
 	//
 	// get movements
 	//
 	PollKeyboardMove();
 
-	if (in_is_mouse_enabled())
-	{
-		PollMouseMove();
-	}
 
 	//
 	// bound movement to a maximum

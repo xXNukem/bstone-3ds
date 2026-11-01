@@ -23,11 +23,15 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_vl.h"
 #include "3d_menu.h"
 #include "gfxv.h"
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_menu.h"
+#endif
 
 #include "bstone_generic_fizzle_fx.h"
 #include "bstone_globals.h"
 #include "bstone_logger.h"
 #include "bstone_utility.h"
+#include "bstone_scope_exit.h"
 
 
 static int get_wall_page_count()
@@ -2371,6 +2375,10 @@ void AddTotalEnemy(
 
 void SetupGameLevel()
 {
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::begin_loading();
+    const auto loading_guard = bstone::make_scope_exit([]() { bstone::n3ds_menu::end_loading(); });
+#endif
 	bool switchon = false;
 	sci_mCacheInfo* ci = InfHintList.smInfo;
 	std::int16_t x, y;
@@ -2392,6 +2400,9 @@ void SetupGameLevel()
 	const auto& assets_info = get_assets_info();
 
 	CA_CacheMap(gamestate.mapon + assets_info.get_levels_per_episode() * gamestate.episode);
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::loading_step();
+#endif
 	mapon = static_cast<std::int16_t>(mapon - (gamestate.episode * assets_info.get_levels_per_episode()));
 
 	mapwidth = mapheaderseg[mapon].width;
@@ -2424,6 +2435,9 @@ void SetupGameLevel()
 	map2 = mapsegs[1].data();
 	for (y = 0; y < mapheight; y++)
 	{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 		for (x = 0; x < mapwidth; x++)
 		{
 			icon = *map2++;
@@ -2495,6 +2509,9 @@ void SetupGameLevel()
 
 	for (y = 0; y < mapheight; y++)
 	{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 		for (x = 0; x < mapwidth; x++)
 		{
 			tile = *map++;
@@ -2743,6 +2760,9 @@ void SetupGameLevel()
 	FirstGenInfMsg = 0;
 	for (; (ci->areanumber != 0xff) && (count--); ci++)
 	{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 		FirstGenInfMsg++;
 	}
 	TotalGenInfMsgs = InfHintList.NumMsgs - FirstGenInfMsg;
@@ -2755,6 +2775,9 @@ void SetupGameLevel()
 	map = mapsegs[0].data();
 	for (y = 0; y < mapheight; y++)
 	{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 		for (x = 0; x < mapwidth; x++)
 		{
 			tile = *map++;
@@ -2847,6 +2870,26 @@ void DrawPlayBorder()
 void BMAmsg(
 	const char* msg)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active() && msg)
+    {
+        bstone::n3ds_menu::clear_content();
+        bstone::n3ds_menu::set_header("MISSION STATUS");
+        bstone::n3ds_menu::set_footer("PLEASE WAIT");
+        PresenterInfo terminal_pi{};
+        terminal_pi.flags = TPF_CACHE_NO_GFX;
+        terminal_pi.script[0] = msg;
+        terminal_pi.xl = 24; terminal_pi.yl = 68;
+        terminal_pi.xh = 296; terminal_pi.yh = 170;
+        terminal_pi.fontnumber = 4;
+        terminal_pi.bgcolor = TERM_BACK_COLOR;
+        fontcolor = ENABLED_TEXT_COLOR;
+        CA_CacheGrChunk(STARTFONT + 4);
+        TP_InitScript(&terminal_pi);
+        TP_Presenter(&terminal_pi);
+        return;
+    }
+#endif
 	const std::int16_t BMAx1 = 0; // outer bevel
 	const std::int16_t BMAy1 = 152;
 	const std::int16_t BMAw1 = 320;
@@ -2933,6 +2976,13 @@ void BevelBox(
 	std::uint8_t med,
 	std::uint8_t lo)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        VWB_Bar(xl, yl, w, h, med);
+        return;
+    }
+#endif
 	std::int16_t xh = xl + w - 1, yh = yl + h - 1;
 	std::uint8_t hc;
 
@@ -3457,6 +3507,10 @@ restartgame:
 			DrawScore();
 		}
 
+#if defined(__3DS__) || defined(_3DS)
+        const bool show_level_loading = !loadedgame;
+        if (show_level_loading) { bstone::n3ds_menu::begin_loading(); }
+#endif
 		startgame = false;
 		if (!loadedgame)
 		{
@@ -3477,6 +3531,9 @@ restartgame:
 			loadedgame = false;
 		}
 
+#if defined(__3DS__) || defined(_3DS)
+        if (show_level_loading) { bstone::n3ds_menu::end_loading(); }
+#endif
 		if (died)
 		{
 			WindowY = 188;

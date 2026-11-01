@@ -24,10 +24,15 @@ SPDX-License-Identifier: GPL-2.0-or-later
 //
 
 #include <cstring>
+#include <algorithm>
+#include <cmath>
 #include <iterator>
 #include "id_ca.h"
 #include "id_heads.h"
 #include "id_in.h"
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_menu.h"
+#endif
 #include "id_sd.h"
 #include "id_vl.h"
 #include "bstone_ascii.h"
@@ -126,38 +131,49 @@ static Direction DirTable[] = // Quick lookup for total direction
 
 namespace {
 
-// in_is_mouse_enabled
+// Persist the selected implemented layout using the engine's archive system.
+auto in_control_scheme_cvar = bstone::CVar{
+    bstone::CVarInt32Tag{}, bstone::StringView{"in_3ds_control_scheme"},
+    bstone::CVarFlags::archive, 0, 0, static_cast<int>(InControlScheme::count) - 1};
 
-constexpr auto in_is_mouse_enabled_cvar_name = bstone::StringView{"in_is_mouse_enabled"};
-constexpr auto in_is_mouse_enabled_cvar_default = true;
-
-auto in_is_mouse_enabled_cvar = bstone::CVar{
-	bstone::CVarBoolTag{},
-	in_is_mouse_enabled_cvar_name,
-	bstone::CVarFlags::archive,
-	in_is_mouse_enabled_cvar_default};
-
-// in_mouse_sensitivity
-
-constexpr auto in_mouse_sensitivity_cvar_name = bstone::StringView{"in_mouse_sensitivity"};
-constexpr auto in_mouse_sensitivity_cvar_min = min_mouse_sensitivity;
-constexpr auto in_mouse_sensitivity_cvar_max = max_mouse_sensitivity;
-constexpr auto in_mouse_sensitivity_cvar_default = default_mouse_sensitivity;
-
-auto in_mouse_sensitivity_cvar = bstone::CVar{
-	bstone::CVarInt32Tag{},
-	in_mouse_sensitivity_cvar_name,
-	bstone::CVarFlags::archive,
-	in_mouse_sensitivity_cvar_default,
-	in_mouse_sensitivity_cvar_min,
-	in_mouse_sensitivity_cvar_max};
+struct N3dsButtonBinding { u32 button; ScanCode key; bool edge; bool retained; };
+constexpr N3dsButtonBinding classic_buttons[] = {
+    {KEY_UP, ScanCode::sc_w, false, false},
+    {KEY_DOWN, ScanCode::sc_s, false, false},
+    {KEY_LEFT, ScanCode::sc_left_arrow, false, false},
+    {KEY_RIGHT, ScanCode::sc_right_arrow, false, false},
+    {KEY_A, ScanCode::sc_control, false, false},
+    {KEY_B, ScanCode::sc_space, false, false},
+    {KEY_L, ScanCode::sc_a, false, false},
+    {KEY_R, ScanCode::sc_d, false, false},
+    {KEY_ZL, ScanCode::sc_e, true, true},
+    {KEY_ZR, ScanCode::sc_q, true, true},
+    {KEY_X, ScanCode::sc_tab, true, false},
+};
+struct N3dsControlLayout { const N3dsButtonBinding* data; std::size_t size; };
+constexpr N3dsButtonBinding modern_buttons[] = {
+    {KEY_A, ScanCode::sc_right_arrow, false, false},
+    {KEY_Y, ScanCode::sc_left_arrow, false, false},
+    {KEY_B, ScanCode::sc_space, false, false},
+    {KEY_R, ScanCode::sc_control, false, false},
+    // KEY_LEFT/RIGHT also include Circle Pad directions; weapons use D-Pad ONLY.
+    {KEY_DRIGHT, ScanCode::sc_e, true, true},
+    {KEY_DLEFT, ScanCode::sc_q, true, true},
+    {KEY_X, ScanCode::sc_tab, true, false},
+};
+constexpr N3dsControlLayout control_layouts[] = {
+    {classic_buttons, sizeof(classic_buttons) / sizeof(classic_buttons[0])},
+    {modern_buttons, sizeof(modern_buttons) / sizeof(modern_buttons[0])},
+    {modern_buttons, sizeof(modern_buttons) / sizeof(modern_buttons[0])},
+};
+static_assert(sizeof(control_layouts) / sizeof(control_layouts[0]) == static_cast<std::size_t>(InControlScheme::count),
+    "Every selectable scheme needs an implemented layout");
 
 } // namespace
 
 void in_initialize_cvars(bstone::CVarMgr& cvar_mgr)
 {
-	cvar_mgr.add(in_is_mouse_enabled_cvar);
-	cvar_mgr.add(in_mouse_sensitivity_cvar);
+    cvar_mgr.add(in_control_scheme_cvar);
 }
 
 bool in_grab_mouse(bool grab)
@@ -792,80 +808,30 @@ void in_handle_events()
 
 		previous_keys = keys;
 
-		// -----------------------------------------
-		// Movimiento original.
-		// -----------------------------------------
+        // Menus always retain A confirm / B back and directional navigation.
+        const auto scheme = !vid_is_hud || bstone::n3ds_menu::active() ?
+            InControlScheme::classic : in_get_control_scheme();
+        static auto previous_scheme = InControlScheme::classic;
+        if (scheme != previous_scheme)
+        {
+            for (const auto& old_layout : control_layouts)
+                for (std::size_t i = 0; i < old_layout.size; ++i)
+                    Keyboard[old_layout.data[i].key] = false;
+            previous_scheme = scheme;
+        }
+        const auto& layout = control_layouts[static_cast<std::size_t>(scheme)];
+        for (std::size_t i = 0; i < layout.size; ++i)
+        {
+            const auto& binding = layout.data[i];
+            const bool down = ((binding.edge ? pressed : keys) & binding.button) != 0;
+            if ((binding.key == ScanCode::sc_space && down && !Keyboard[binding.key]) ||
+                (binding.key == ScanCode::sc_tab && down))
+            {
+                LastScan = binding.key;
+            }
+            if (!binding.retained || down) { Keyboard[binding.key] = down; }
+        }
 
-		Keyboard[ScanCode::sc_w] =
-			(keys & KEY_UP) != 0;
-
-		Keyboard[ScanCode::sc_s] =
-			(keys & KEY_DOWN) != 0;
-
-		Keyboard[ScanCode::sc_left_arrow] =
-			(keys & KEY_LEFT) != 0;
-
-		Keyboard[ScanCode::sc_right_arrow] =
-			(keys & KEY_RIGHT) != 0;
-
-		// -----------------------------------------
-		// A: disparar.
-		// -----------------------------------------
-
-		Keyboard[ScanCode::sc_control] =
-			(keys & KEY_A) != 0;
-
-		// -----------------------------------------
-		// B: interactuar y abrir puertas.
-		// -----------------------------------------
-
-		const bool action_pressed =
-			(keys & KEY_B) != 0;
-
-		if (action_pressed &&
-			!Keyboard[ScanCode::sc_space])
-		{
-			LastScan = ScanCode::sc_space;
-		}
-
-		Keyboard[ScanCode::sc_space] =
-			action_pressed;
-
-		// -----------------------------------------
-		// L / R: movimiento lateral.
-		// -----------------------------------------
-
-		Keyboard[ScanCode::sc_a] =
-			(keys & KEY_L) != 0;
-
-		Keyboard[ScanCode::sc_d] =
-			(keys & KEY_R) != 0;
-
-		// -----------------------------------------
-		// ZL: arma siguiente.
-		// ZR: arma anterior.
-		//
-		// Solo una acción por pulsación.
-		// BStone consume y limpia estas teclas.
-		// -----------------------------------------
-
-		if (pressed & KEY_ZL)
-		{
-			Keyboard[ScanCode::sc_e] = true;
-		}
-
-		if (pressed & KEY_ZR)
-		{
-			Keyboard[ScanCode::sc_q] = true;
-		}
-		// X: abrir y cerrar el automapa.
-		Keyboard[ScanCode::sc_tab] =
-			(pressed & KEY_X) != 0;
-
-		if (pressed & KEY_X)
-		{
-			LastScan = ScanCode::sc_tab;
-		}
 		// -----------------------------------------
 		// START: abrir menú principal.
 		//
@@ -1072,6 +1038,9 @@ void IN_StartAck()
 bool IN_CheckAck()
 {
 	in_handle_events();
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::idle();
+#endif
 
 	//
 	// see if something has been pressed
@@ -1154,24 +1123,53 @@ std::uint8_t IN_MouseButtons()
 	return static_cast<std::uint8_t>(INL_GetMouseButtons());
 }
 
-bool in_is_mouse_enabled() noexcept
+InControlScheme in_get_control_scheme() noexcept
 {
-	return in_is_mouse_enabled_cvar.get_bool();
+    return static_cast<InControlScheme>(in_control_scheme_cvar.get_int32());
 }
 
-void in_set_is_mouse_enabled(bool is_enabled)
+void in_set_control_scheme(InControlScheme scheme)
 {
-	in_is_mouse_enabled_cvar.set_bool(is_enabled);
+    in_control_scheme_cvar.set_int32(static_cast<int>(scheme));
+    IN_ClearKeysDown();
 }
 
-int in_get_mouse_sensitivity() noexcept
+const char* in_control_scheme_name(InControlScheme scheme) noexcept
 {
-	return in_mouse_sensitivity_cvar.get_int32();
+    switch (scheme)
+    {
+    case InControlScheme::modern: return "MODERN";
+    case InControlScheme::modern_cstick: return "MODERN + C-STICK";
+    default: return "CLASSIC";
+    }
 }
 
-void in_set_mouse_sensitivity(int sensitivity)
+void in_get_3ds_motion(int& forward, int& strafe, int& turn)
 {
-	in_mouse_sensitivity_cvar.set_int32(sensitivity);
+    forward = strafe = turn = 0;
+    const auto scheme = in_get_control_scheme();
+    if (scheme == InControlScheme::classic || !vid_is_hud || bstone::n3ds_menu::active()) { return; }
+    // Use HID already owned/scanned by SDL/libctru; do not initialize a second
+    // HID/IRRST service. Positive Circle Y is forward; positive X is right.
+    circlePosition circle{};
+    hidCircleRead(&circle);
+    const auto axis = [](int value, int deadzone)
+    {
+        const int magnitude = std::min(156, std::abs(value));
+        return magnitude <= deadzone ? 0 :
+            (value < 0 ? -1 : 1) * (magnitude - deadzone) * 1000 / (156 - deadzone);
+    };
+    forward = axis(circle.dy, 20);
+    strafe = axis(circle.dx, 20);
+    // Preserve the same maximum walking speed on diagonals.
+    const int magnitude = static_cast<int>(std::sqrt(double(forward * forward + strafe * strafe)));
+    if (magnitude > 1000) { forward = forward * 1000 / magnitude; strafe = strafe * 1000 / magnitude; }
+    if (scheme == InControlScheme::modern_cstick)
+    {
+        circlePosition cstick{};
+        hidCstickRead(&cstick);
+        turn = axis(cstick.dx, 15);
+    }
 }
 
 void IN_Startup()

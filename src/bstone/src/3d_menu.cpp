@@ -10,7 +10,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <cstring>
 
 #include <algorithm>
-#include <map>
 #include <stdexcept>
 #include <vector>
 
@@ -34,6 +33,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_scope_exit.h"
 #if defined(__3DS__) || defined(_3DS)
 #include <3ds.h>
+#include "bstone_3ds_weapons.h"
+#include "bstone_3ds_menu.h"
 #endif
 
 #define GAME_DESCRIPTION_LEN (31)
@@ -127,8 +128,17 @@ enum sw2_labels
 enum MenuVideoLables
 {
 	mvl_widescreen,
-	mvl_stretch_ui,
+	mvl_menu_crt,
+
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+	mvl_ai_weapons,
+#endif
 };
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+constexpr int video_menu_item_count = 3;
+#else
+constexpr int video_menu_item_count = 2;
+#endif
 // BBi
 
 
@@ -257,9 +267,7 @@ void DrawNewEpisode();
 
 void DrawNewGame();
 
-void DrawMouseSens();
 
-void DrawCtlScreen();
 
 void DrawLSAction(
 	std::int16_t which);
@@ -302,11 +310,7 @@ std::int16_t CP_EndGame();
 bool CP_CheckQuick(
 	ScanCode scancode);
 
-void CustomControls(
-	std::int16_t temp1);
 
-void MouseSensitivity(
-	std::int16_t temp1);
 
 //
 // End game message
@@ -408,16 +412,16 @@ extern bool refresh_screen;
 
 CP_iteminfo MainItems = {MENU_X, MENU_Y, 12, MM_NEW_MISSION, 0, 9, {77, 1, 154, 9, 1}};
 CP_iteminfo GopItems = {MENU_X, MENU_Y + 25, 6, 0, 0, 9, {77, 1, 154, 9, 1}};
-CP_iteminfo SndItems = {SM_X, SM_Y, 6, 0, 0, 8, {87, -1, 144, 7, 1}};
+CP_iteminfo SndItems = {SM_X, SM_Y, 4, 0, 0, 8, {87, -1, 144, 7, 1}};
 CP_iteminfo LSItems = {LSM_X, LSM_Y, 10, 0, 0, 8, {86, -1, 144, 8, 1}};
-CP_iteminfo CtlItems = {CTL_X, CTL_Y, 3, -1, 0, 9, {87, 1, 174, 9, 1}};
+CP_iteminfo CtlItems = {CTL_X, CTL_Y, 2, 0, 0, 9, {87, 1, 174, 9, 1}};
 CP_iteminfo CusItems = {CST_X, CST_Y + 7, 6, -1, 0, 15, {54, -1, 203, 7, 1}};
 CP_iteminfo NewEitems = {NE_X, NE_Y, 6, 0, 0, 16, {43, -2, 119, 16, 1}};
 CP_iteminfo NewItems = {NM_X, NM_Y, 4, 1, 0, 16, {60, -2, 105, 16, 1}};
 CP_iteminfo SwitchItems = {MENU_X, 0, 0, 0, 0, 9, {87, -1, 132, 7, 1}};
 
 // BBi
-CP_iteminfo video_items = {MENU_X, MENU_Y + 30, 2, 0, 0, 9, {77, -1, 154, 7, 1}};
+CP_iteminfo video_items = {MENU_X, MENU_Y + 30, video_menu_item_count, 0, 0, 9, {77, -1, 154, 7, 1}};
 CP_iteminfo switches2_items = {MENU_X, MENU_Y + 30, 5, 0, 0, 9, {87, -1, 132, 7, 1}};
 // BBi
 
@@ -462,34 +466,31 @@ CP_itemtype SndMenu[] =
 	{AT_ENABLED, "SFX TYPE", 0},
 	{AT_ENABLED, "DIGITIZED SFX", 0},
 	{AT_ENABLED, "BACKGROUND MUSIC", 0},
-	{AT_ENABLED, "DRIVER", 0},
-	{AT_ENABLED, "OPL3 TYPE", 0},
 };
 
 CP_itemtype CtlMenu[] = {
-	{AT_DISABLED, "MOUSE ENABLED", 0},
-	{AT_DISABLED, "MOUSE SENSITIVITY", MouseSensitivity},
-	{AT_ENABLED, "CUSTOMIZE CONTROLS", CustomControls}
+    {AT_ENABLED, "CONTROL SCHEME", nullptr},
+    {AT_ENABLED, "VIEW CONTROLS", nullptr},
 };
 
 CP_itemtype SwitchMenu[] = {
 	{AT_ENABLED, "LIGHTING", 0},
 	{AT_ENABLED, "REBA ATTACK INFO", 0},
-	{AT_ENABLED, "SHOW CEILINGS", 0},
-	{AT_ENABLED, "SHOW FLOORS", 0},
+	{AT_ENABLED, "TEXTURED CEILING", 0},
+	{AT_ENABLED, "TEXTURED FLOOR", 0},
 
 	// BBi
 	{AT_ENABLED, "NO WALL HIT SOUND", 0},
 	{AT_ENABLED, "ALWAYS RUN", 0},
 	{AT_ENABLED, "QUIT ON ESCAPE", 0},
 	{AT_ENABLED, "HEART BEAT SOUND", 0},
-	{AT_ENABLED, "ROTATED AUTOMAP", 0},
+	{AT_ENABLED, "STATS MAP", 0},
 };
 
 CP_itemtype switch2_menu[] =
 {
-	{AT_ENABLED, "SKIP INTRO/OUTRO", 0},
-	{AT_ENABLED, "SKIP FADE IN/OUT EFFECT", 0},
+	{AT_ENABLED, "SKIP TITLE / EXIT PAGES", 0},
+	{AT_ENABLED, "SKIP GAME FADES", 0},
 	{AT_ENABLED, "NO WEAPON BOBBING", 0},
 	{AT_ENABLED, "VANILLA FIZZLE FX", 0},
 	{AT_ENABLED, "[PS] MAP IN STATS", 0},
@@ -552,8 +553,12 @@ CP_itemtype CusMenu[] = {
 
 CP_itemtype video_menu[] =
 {
-	{AT_ENABLED, "WIDESCREEN", nullptr},
-	{AT_ENABLED, "STRETCH UI", nullptr},
+	{AT_ENABLED, "VIEW ASPECT", nullptr},
+	{AT_ENABLED, "MENU CRT", nullptr},
+
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+	{AT_ENABLED, "AI ENHANCED WEAPON DESIGNS", nullptr},
+#endif
 };
 // BBi
 
@@ -755,857 +760,6 @@ void menu_play_move_gun_1_sound()
 }
 
 
-using BindsNames = std::map<ScanCode, const char*>;
-
-
-enum BindsFindDirection
-{
-	e_bfd_forward,
-	e_bfd_backward
-}; // BindsFindDirection
-
-enum BindsFindFrom
-{
-	e_bff_current,
-	e_bff_not_current
-}; // BindingFindFrom
-
-
-class BindsItem
-{
-public:
-	std::string name;
-	int name_width;
-	Binding* binding;
-
-	BindsItem(
-		std::string new_name = std::string(),
-		int new_name_width = 0,
-		Binding* new_binding = nullptr) :
-		name(new_name),
-		name_width(new_name_width),
-		binding(new_binding)
-	{
-	}
-}; // BindsItem
-
-using BindsItems = std::vector<BindsItem>;
-
-static BindsItems binds = {
-	{"MOVEMENT", 0, nullptr, },
-	{"FORWARD", 0, &in_bindings[e_bi_forward], },
-	{"BACKWARD", 0, &in_bindings[e_bi_backward], },
-	{"LEFT", 0, &in_bindings[e_bi_left], },
-	{"RIGHT", 0, &in_bindings[e_bi_right], },
-	{"STRAFE", 0, &in_bindings[e_bi_strafe], },
-	{"STRAFE LEFT", 0, &in_bindings[e_bi_strafe_left], },
-	{"STRAFE RIGHT", 0, &in_bindings[e_bi_strafe_right], },
-	{"QUICK LEFT", 0, &in_bindings[e_bi_quick_left], },
-	{"QUICK RIGHT", 0, &in_bindings[e_bi_quick_right], },
-	{"TURN AROUND", 0, &in_bindings[e_bi_turn_around], },
-	{"RUN", 0, &in_bindings[e_bi_run], },
-	{"", 0, nullptr, },
-
-	{"WEAPONS", 0, nullptr, },
-	{"ATTACK", 0, &in_bindings[e_bi_attack], },
-	{"AUTO CHARGE PISTOL", 0, &in_bindings[e_bi_weapon_1], },
-	{"SLOW FIRE PROTECTOR", 0, &in_bindings[e_bi_weapon_2], },
-	{"RAPID ASSAULT WEAPON", 0, &in_bindings[e_bi_weapon_3], },
-	{"DUAL NEUTRON DISRUPTOR", 0, &in_bindings[e_bi_weapon_4], },
-	{"PLASMA DISCHARGE UNIT", 0, &in_bindings[e_bi_weapon_5], },
-	{"ANTI-PLASMA CANNON (PS)", 0, &in_bindings[e_bi_weapon_6], },
-	{"FISSION DETONATOR (PS)", 0, &in_bindings[e_bi_weapon_7], },
-	{"", 0, nullptr, },
-	{"CYCLE NEXT", 0, &in_bindings[e_bi_cycle_next_weapon], },
-	{"CYCLE PREVIOUS", 0, &in_bindings[e_bi_cycle_previous_weapon], },
-	{"", 0, nullptr, },
-
-	{"INTERACTION", 0, nullptr, },
-	{"USE", 0, &in_bindings[e_bi_use], },
-	{"", 0, nullptr, },
-
-	{"HUD", 0, nullptr, },
-	{"STATS", 0, &in_bindings[e_bi_stats], },
-	{"MAGNIFY RADAR (PS)", 0, &in_bindings[e_bi_radar_magnify], },
-	{"MINIFY RADAR (PS)", 0, &in_bindings[e_bi_radar_minify], },
-	{"", 0, nullptr, },
-
-	{"MENU", 0, nullptr, },
-	{"HELP", 0, &in_bindings[e_bi_help], },
-	{"SAVE", 0, &in_bindings[e_bi_save], },
-	{"LOAD", 0, &in_bindings[e_bi_load], },
-	{"SOUND OPTIONS", 0, &in_bindings[e_bi_sound], },
-	{"CONTROLS", 0, &in_bindings[e_bi_controls], },
-	{"END GAME", 0, &in_bindings[e_bi_end_game], },
-	{"QUICK SAVE", 0, &in_bindings[e_bi_quick_save], },
-	{"QUICK LOAD", 0, &in_bindings[e_bi_quick_load], },
-	{"QUICK EXIT", 0, &in_bindings[e_bi_quick_exit], },
-	{"", 0, nullptr, },
-
-	{"OPTIONS", 0, nullptr, },
-	{"ATTACK INFO", 0, &in_bindings[e_bi_attack_info], },
-	{"LIGHTNING", 0, &in_bindings[e_bi_lightning], },
-	{"SOUND", 0, &in_bindings[e_bi_sfx], },
-	{"MUSIC", 0, &in_bindings[e_bi_music], },
-	{"CEILING", 0, &in_bindings[e_bi_ceiling], },
-	{"FLOORING", 0, &in_bindings[e_bi_flooring], },
-	{"HEART BEAT (AOG)", 0, &in_bindings[e_bi_heart_beat], },
-	{"", 0, nullptr, },
-
-	{"MISC", 0, nullptr, },
-	{"PAUSE", 0, &in_bindings[e_bi_pause], },
-	{"(UN)GRAB MOUSE", 0, &in_bindings[e_bi_grab_mouse], },
-	{"TAKE SCREENSHOT", 0, &in_bindings[e_bi_take_screenshot], },
-}; // binds
-
-
-const int k_binds_max_per_window = 14;
-const int k_binds_text_keys_gap = 3;
-const int k_binds_line_spacing = 1;
-const int k_binds_top = 28;
-
-const std::uint8_t k_binds_category_color = 0x4A;
-const std::uint8_t k_binds_text_color = 0x56;
-const std::uint8_t k_binds_key_text_color = 0x7F;
-const std::uint8_t k_binds_key_bar_default_color = 0x03;
-const std::uint8_t k_binds_key_bar_active_color = 0x31;
-const std::uint8_t k_binds_key_bar_assign_color = 0x14;
-
-int binds_count;
-int binds_window;
-int binds_window_offset;
-int binds_key_index;
-int binds_key_width;
-int binds_max_text_width;
-int binds_text_height;
-int binds_text_x;
-int binds_key_x[k_max_binding_keys];
-bool binds_is_assigning = false;
-
-BindsNames binds_names;
-
-
-void binds_initialize_menu()
-{
-	static bool is_initialized = false;
-
-	if (is_initialized)
-	{
-		return;
-	}
-
-	binds_count = 0;
-	binds_window = 0;
-	binds_window_offset = 0;
-	binds_key_index = 0;
-	binds_key_width = 0;
-	binds_max_text_width = 0;
-	binds_text_height = 0;
-	binds_is_assigning = false;
-
-	bool has_bindings = false;
-
-	fontnumber = 2;
-
-	for (auto& bind : binds)
-	{
-		++binds_count;
-
-		if (!bind.name.empty())
-		{
-			int width = 0;
-			int height = 0;
-			VW_MeasurePropString(bind.name.c_str(), &width, &height);
-
-			bind.name_width = width;
-
-			if (width > binds_max_text_width)
-			{
-				binds_max_text_width = width;
-			}
-
-			if (height > binds_text_height)
-			{
-				binds_text_height = height;
-			}
-
-			has_bindings = true;
-		}
-	}
-
-
-	if (!has_bindings)
-	{
-		BSTONE_THROW_STATIC_SOURCE("No bindings.");
-	}
-
-	binds_names.clear();
-	binds_names[ScanCode::sc_return] = "ENTER";
-	binds_names[ScanCode::sc_space] = "SPACE";
-	binds_names[ScanCode::sc_minus] = "-";
-	binds_names[ScanCode::sc_equals] = "=";
-	binds_names[ScanCode::sc_backspace] = "BACKSPACE";
-	binds_names[ScanCode::sc_tab] = "TAB";
-	binds_names[ScanCode::sc_alt] = "ALT";
-	binds_names[ScanCode::sc_left_bracket] = "[";
-	binds_names[ScanCode::sc_right_bracket] = "]";
-	binds_names[ScanCode::sc_control] = "CTRL";
-	binds_names[ScanCode::sc_caps_lock] = "CAPS LOCK";
-	binds_names[ScanCode::sc_num_lock] = "NUM LOCK";
-	binds_names[ScanCode::sc_scroll_lock] = "SCROLL LOCK";
-	binds_names[ScanCode::sc_left_shift] = "L-SHIFT";
-	binds_names[ScanCode::sc_right_shift] = "R-SHIFT";
-	binds_names[ScanCode::sc_up_arrow] = "UP";
-	binds_names[ScanCode::sc_down_arrow] = "DOWN";
-	binds_names[ScanCode::sc_left_arrow] = "LEFT";
-	binds_names[ScanCode::sc_right_arrow] = "RIGHT";
-	binds_names[ScanCode::sc_insert] = "INS";
-	binds_names[ScanCode::sc_delete] = "DEL";
-	binds_names[ScanCode::sc_home] = "HOME";
-	binds_names[ScanCode::sc_end] = "END";
-	binds_names[ScanCode::sc_page_up] = "PGUP";
-	binds_names[ScanCode::sc_page_down] = "PGDN";
-	binds_names[ScanCode::sc_slash] = "/";
-	binds_names[ScanCode::sc_f1] = "F1";
-	binds_names[ScanCode::sc_f2] = "F2";
-	binds_names[ScanCode::sc_f3] = "F3";
-	binds_names[ScanCode::sc_f4] = "F4";
-	binds_names[ScanCode::sc_f5] = "F5";
-	binds_names[ScanCode::sc_f6] = "F6";
-	binds_names[ScanCode::sc_f7] = "F7";
-	binds_names[ScanCode::sc_f8] = "F8";
-	binds_names[ScanCode::sc_f9] = "F9";
-	binds_names[ScanCode::sc_f10] = "F10";
-	binds_names[ScanCode::sc_f11] = "F11";
-	binds_names[ScanCode::sc_f12] = "F12";
-	binds_names[ScanCode::sc_print_screen] = "PRT SCR";
-	binds_names[ScanCode::sc_pause] = "PAUSE";
-	binds_names[ScanCode::sc_back_quote] = "BACK QUOTE";
-	binds_names[ScanCode::sc_semicolon] = ";";
-	binds_names[ScanCode::sc_quote] = "'";
-	binds_names[ScanCode::sc_backslash] = "\\";
-	binds_names[ScanCode::sc_comma] = ",";
-	binds_names[ScanCode::sc_period] = ".";
-
-	binds_names[ScanCode::sc_1] = "1";
-	binds_names[ScanCode::sc_2] = "2";
-	binds_names[ScanCode::sc_3] = "3";
-	binds_names[ScanCode::sc_4] = "4";
-	binds_names[ScanCode::sc_5] = "5";
-	binds_names[ScanCode::sc_6] = "6";
-	binds_names[ScanCode::sc_7] = "7";
-	binds_names[ScanCode::sc_8] = "8";
-	binds_names[ScanCode::sc_9] = "9";
-	binds_names[ScanCode::sc_0] = "0";
-
-	binds_names[ScanCode::sc_a] = "A";
-	binds_names[ScanCode::sc_b] = "B";
-	binds_names[ScanCode::sc_c] = "C";
-	binds_names[ScanCode::sc_d] = "D";
-	binds_names[ScanCode::sc_e] = "E";
-	binds_names[ScanCode::sc_f] = "F";
-	binds_names[ScanCode::sc_g] = "G";
-	binds_names[ScanCode::sc_h] = "H";
-	binds_names[ScanCode::sc_i] = "I";
-	binds_names[ScanCode::sc_j] = "J";
-	binds_names[ScanCode::sc_k] = "K";
-	binds_names[ScanCode::sc_l] = "L";
-	binds_names[ScanCode::sc_m] = "M";
-	binds_names[ScanCode::sc_n] = "N";
-	binds_names[ScanCode::sc_o] = "O";
-	binds_names[ScanCode::sc_p] = "P";
-	binds_names[ScanCode::sc_q] = "Q";
-	binds_names[ScanCode::sc_r] = "R";
-	binds_names[ScanCode::sc_s] = "S";
-	binds_names[ScanCode::sc_t] = "T";
-	binds_names[ScanCode::sc_u] = "U";
-	binds_names[ScanCode::sc_v] = "V";
-	binds_names[ScanCode::sc_w] = "W";
-	binds_names[ScanCode::sc_x] = "X";
-	binds_names[ScanCode::sc_y] = "Y";
-	binds_names[ScanCode::sc_z] = "Z";
-
-	binds_names[ScanCode::sc_kp_minus] = "KP MINUS";
-	binds_names[ScanCode::sc_kp_plus] = "KP PLUS";
-
-	binds_names[ScanCode::sc_mouse_left] = "MOUSE 1";
-	binds_names[ScanCode::sc_mouse_middle] = "MOUSE 2";
-	binds_names[ScanCode::sc_mouse_right] = "MOUSE 3";
-	binds_names[ScanCode::sc_mouse_x1] = "MOUSE 4";
-	binds_names[ScanCode::sc_mouse_x2] = "MOUSE 5";
-
-	binds_names[ScanCode::sc_mouse_wheel_down] = "MWHEEL DOWN";
-	binds_names[ScanCode::sc_mouse_wheel_up] = "MWHEEL UP";
-
-	for (const auto& binds_name : binds_names)
-	{
-		int width = 0;
-		int height = 0;
-		VW_MeasurePropString(binds_name.second, &width, &height);
-
-		if (width > binds_key_width)
-		{
-			binds_key_width = width;
-		}
-	}
-
-	int max_keys_width = k_max_binding_keys * (binds_key_width + 1);
-	int max_text_width = 2 + binds_max_text_width;
-	int max_width = max_keys_width + k_binds_text_keys_gap + max_text_width;
-
-	int text_x = (SCREEN_W - max_width) / 2;
-
-	int base_key_x = text_x + max_text_width + k_binds_text_keys_gap;
-
-	binds_text_x = text_x;
-
-	for (int i = 0; i < k_max_binding_keys; ++i)
-	{
-		binds_key_x[i] = base_key_x + (i * (binds_key_width + 1));
-	}
-
-	is_initialized = true;
-}
-
-bool binds_advance_to_item(
-	BindsFindDirection direction)
-{
-	switch (direction)
-	{
-	case e_bfd_forward:
-		if ((binds_window + binds_window_offset + 1) < binds_count)
-		{
-			++binds_window_offset;
-
-			if (binds_window_offset == k_binds_max_per_window)
-			{
-				++binds_window;
-				--binds_window_offset;
-			}
-
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-
-	case e_bfd_backward:
-		if ((binds_window + binds_window_offset) > 0)
-		{
-			--binds_window_offset;
-
-			if (binds_window_offset < 0)
-			{
-				--binds_window;
-				binds_window_offset = 0;
-			}
-
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-
-	default:
-		return false;
-	}
-}
-
-bool binds_find_item(
-	BindsFindDirection direction,
-	BindsFindFrom from)
-{
-	if (from == e_bff_not_current)
-	{
-		if (!binds_advance_to_item(direction))
-		{
-			return false;
-		}
-	}
-
-	while (true)
-	{
-		if (binds[binds_window + binds_window_offset].binding)
-		{
-			return true;
-		}
-
-		if (!binds_advance_to_item(direction))
-		{
-			return false;
-		}
-	}
-
-	return false;
-}
-
-bool binds_assign_new_key(
-	ScanCode key,
-	Binding& binding)
-{
-	auto it = binds_names.find(LastScan);
-
-	if (it == binds_names.end())
-	{
-		return false;
-	}
-
-	for (int b = 0; b < k_max_bindings; ++b)
-	{
-		for (int k = 0; k < k_max_binding_keys; ++k)
-		{
-			if (in_bindings[b][k] == key)
-			{
-				in_bindings[b][k] = ScanCode::sc_none;
-			}
-		}
-	}
-
-	binding[binds_key_index] = key;
-
-	return true;
-}
-
-void binds_remove_binding()
-{
-	auto& item = binds[binds_window + binds_window_offset];
-	(*item.binding)[binds_key_index] = ScanCode::sc_none;
-}
-
-void binds_draw_item_text(
-	int item_index)
-{
-	auto& item = binds[binds_window + item_index];
-
-	if (item.name.empty())
-	{
-		return;
-	}
-
-	int x = SCREEN_X + binds_text_x;
-	int y = SCREEN_Y + k_binds_top +
-		(item_index * (binds_text_height + k_binds_line_spacing));
-
-	int text_left_offset = 0;
-	int text_width = 0;
-
-	if (item.binding)
-	{
-		text_width = item.name_width;
-		text_left_offset = binds_max_text_width - item.name_width;
-
-		if (text_left_offset < 0)
-		{
-			text_left_offset = 0;
-			text_width = binds_max_text_width;
-		}
-	}
-	else
-	{
-		text_width = SCREEN_W;
-	}
-
-	PrintX = static_cast<std::int16_t>(x + text_left_offset);
-	PrintY = static_cast<std::int16_t>(y);
-	WindowX = PrintX;
-	WindowY = PrintY;
-	WindowW = static_cast<std::int16_t>(text_width);
-	WindowH = static_cast<std::int16_t>(binds_text_height);
-
-	if (item.binding)
-	{
-		fontcolor = k_binds_text_color;
-		US_Print(item.name.c_str());
-	}
-	else
-	{
-		fontcolor = k_binds_category_color;
-		US_PrintCentered(item.name.c_str());
-	}
-}
-
-void binds_draw_keys(
-	int item_index)
-{
-	const auto& item = binds[binds_window + item_index];
-
-	if (!item.binding)
-	{
-		return;
-	}
-
-	int y = SCREEN_Y + k_binds_top +
-		(item_index * (binds_text_height + k_binds_line_spacing));
-
-	bool is_current = (item_index == binds_window_offset);
-
-	for (int k = 0; k < k_max_binding_keys; ++k)
-	{
-		std::uint8_t color;
-		ScanCode key;
-		const char* key_name;
-
-		bool is_active = is_current && (binds_key_index == k);
-
-		if (is_active)
-		{
-			color =
-				binds_is_assigning ?
-				k_binds_key_bar_assign_color :
-				k_binds_key_bar_active_color;
-		}
-		else
-		{
-			color = k_binds_key_bar_default_color;
-		}
-
-		int x = SCREEN_X + binds_key_x[k];
-
-		VWB_Bar(
-			x,
-			y,
-			binds_key_width,
-			binds_text_height,
-			color);
-
-		PrintX = static_cast<std::int16_t>(x);
-		PrintY = static_cast<std::int16_t>(y);
-		WindowX = PrintX;
-		WindowY = PrintY;
-		WindowW = static_cast<std::int16_t>(binds_key_width);
-		WindowH = static_cast<std::int16_t>(binds_text_height);
-
-		if (!(is_active && binds_is_assigning))
-		{
-			key = (*item.binding)[k];
-
-			if (key != ScanCode::sc_none)
-			{
-				key_name = "???";
-
-				auto name_it = binds_names.find(key);
-
-				if (name_it != binds_names.end())
-				{
-					key_name = name_it->second;
-				}
-
-				fontcolor = k_binds_key_text_color;
-				US_PrintCentered(key_name);
-			}
-		}
-	}
-}
-
-void binds_draw()
-{
-	bool found_item = false;
-
-	found_item = binds_find_item(e_bfd_forward, e_bff_current);
-
-	if (!found_item)
-	{
-		found_item = binds_find_item(e_bfd_backward, e_bff_current);
-	}
-
-	ClearMScreen();
-	DrawMenuTitle("CUSTOMIZE CONTROLS");
-
-	DrawInstructions(
-		binds_is_assigning ? IT_CONTROLS_ASSIGNING_KEY : IT_CONTROLS);
-
-	fontnumber = 2;
-
-	for (int i = 0; i < k_binds_max_per_window; ++i)
-	{
-		int item_index = binds_window + i;
-
-		if (item_index == binds_count)
-		{
-			break;
-		}
-
-		binds_draw_item_text(i);
-		binds_draw_keys(i);
-	}
-}
-
-void binds_draw_menu()
-{
-	bool is_up_pressed = false;
-	bool is_down_pressed = false;
-	bool is_left_pressed = false;
-	bool is_right_pressed = false;
-	bool is_pgdn_pressed = false;
-	bool is_pgup_pressed = false;
-	bool is_enter_pressed = false;
-	bool is_delete_pressed = false;
-	bool is_escape_pressed = false;
-
-	bool handle_up = false;
-	bool handle_down = false;
-	bool handle_left = false;
-	bool handle_right = false;
-	bool handle_pgdn = false;
-	bool handle_pgup = false;
-	bool handle_enter = false;
-	bool handle_delete = false;
-	bool handle_escape = false;
-
-	bool fade_in = true;
-
-	CA_CacheGrChunk(STARTFONT + 2);
-	CA_CacheGrChunk(STARTFONT + 4);
-	binds_initialize_menu();
-
-	binds_is_assigning = false;
-
-	while (true)
-	{
-		binds_draw();
-		VW_UpdateScreen();
-
-		if (fade_in)
-		{
-			fade_in = false;
-			MenuFadeIn();
-		}
-
-		in_handle_events();
-
-		if (binds_is_assigning)
-		{
-			LastScan = ScanCode::sc_none;
-			bool quit = false;
-
-			while (!quit)
-			{
-				LastScan = ScanCode::sc_none;
-				in_handle_events();
-
-				if (Keyboard[ScanCode::sc_escape])
-				{
-					quit = true;
-					menu_play_esc_pressed_sound();
-				}
-				else if (LastScan != ScanCode::sc_none)
-				{
-					auto& item = binds[binds_window + binds_window_offset];
-
-					if (binds_assign_new_key(LastScan, *item.binding))
-					{
-						ShootSnd();
-						quit = true;
-					}
-					else
-					{
-						menu_play_no_way_sound();
-					}
-				}
-			}
-
-			is_escape_pressed = true;
-			binds_is_assigning = false;
-		}
-		else
-		{
-			if (Keyboard[ScanCode::sc_up_arrow])
-			{
-				if (!is_up_pressed)
-				{
-					handle_up = true;
-					is_up_pressed = true;
-				}
-			}
-			else
-			{
-				is_up_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_down_arrow])
-			{
-				if (!is_down_pressed)
-				{
-					handle_down = true;
-					is_down_pressed = true;
-				}
-			}
-			else
-			{
-				is_down_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_left_arrow])
-			{
-				if (!is_left_pressed)
-				{
-					handle_left = true;
-					is_left_pressed = true;
-				}
-			}
-			else
-			{
-				is_left_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_right_arrow])
-			{
-				if (!is_right_pressed)
-				{
-					handle_right = true;
-					is_right_pressed = true;
-				}
-			}
-			else
-			{
-				is_right_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_page_down])
-			{
-				if (!is_pgdn_pressed)
-				{
-					handle_pgdn = true;
-					is_pgdn_pressed = true;
-				}
-			}
-			else
-			{
-				is_pgdn_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_page_up])
-			{
-				if (!is_pgup_pressed)
-				{
-					handle_pgup = true;
-					is_pgup_pressed = true;
-				}
-			}
-			else
-			{
-				is_pgup_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_return])
-			{
-				if (!is_enter_pressed)
-				{
-					handle_enter = true;
-					is_enter_pressed = true;
-				}
-			}
-			else
-			{
-				is_enter_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_delete])
-			{
-				if (!is_delete_pressed)
-				{
-					handle_delete = true;
-					is_delete_pressed = true;
-				}
-			}
-			else
-			{
-				is_delete_pressed = false;
-			}
-
-			if (Keyboard[ScanCode::sc_escape])
-			{
-				if (!is_escape_pressed)
-				{
-					handle_escape = true;
-					is_escape_pressed = true;
-				}
-			}
-			else
-			{
-				is_escape_pressed = false;
-			}
-
-			if (handle_up)
-			{
-				handle_up = false;
-				binds_find_item(e_bfd_backward, e_bff_not_current);
-			}
-
-			if (handle_down)
-			{
-				handle_down = false;
-				binds_find_item(e_bfd_forward, e_bff_not_current);
-			}
-
-			if (handle_left)
-			{
-				handle_left = false;
-
-				if (binds_key_index == 1)
-				{
-					binds_key_index = 0;
-				}
-			}
-
-			if (handle_right)
-			{
-				handle_right = false;
-
-				if (binds_key_index == 0)
-				{
-					binds_key_index = 1;
-				}
-			}
-
-			if (handle_pgdn)
-			{
-				handle_pgdn = false;
-
-				for (int i = 0; i < k_binds_max_per_window; ++i)
-				{
-					binds_find_item(e_bfd_forward, e_bff_not_current);
-				}
-			}
-
-			if (handle_pgup)
-			{
-				handle_pgup = false;
-
-				for (int i = 0; i < k_binds_max_per_window; ++i)
-				{
-					binds_find_item(e_bfd_backward, e_bff_not_current);
-				}
-			}
-
-			if (handle_enter)
-			{
-				handle_enter = false;
-				binds_is_assigning = true;
-			}
-
-			if (handle_delete)
-			{
-				handle_delete = false;
-				binds_remove_binding();
-				ShootSnd();
-			}
-
-			if (handle_escape)
-			{
-				handle_escape = false;
-				menu_play_esc_pressed_sound();
-				break;
-			}
-		}
-	}
-
-	MenuFadeOut();
-}
-
-
 } // namespace
 // BBi
 
@@ -1618,8 +772,21 @@ void HelpPresenter(
 	const char* fname,
 	bool continue_keys,
 	std::uint16_t id_cache,
-	bool startmusic)
+	bool startmusic,
+    const char* section)
 {
+#if defined(__3DS__) || defined(_3DS)
+    const bool owns_terminal = !bstone::n3ds_menu::active();
+    if (owns_terminal) { bstone::n3ds_menu::begin(get_assets_info().is_ps(), ingame); }
+    const auto terminal_guard = bstone::make_scope_exit([&]()
+    {
+        if (owns_terminal) { bstone::n3ds_menu::end(); }
+    });
+    const char* heading = section ? section : id_cache == HELPTEXT ? "INSTRUCTIONS" :
+        id_cache == SAGATEXT ? "HISTORY" : id_cache == ORDERTEXT ? "ORDERING INFORMATION" :
+        "MISSION BRIEFING";
+    bstone::n3ds_menu::show_document(heading, continue_keys);
+#endif
 	const int FULL_VIEW_WIDTH = 19;
 
 	PresenterInfo pi;
@@ -1643,6 +810,7 @@ void HelpPresenter(
 		NewViewSize();
 	}
 
+#if !defined(__3DS__) && !defined(_3DS)
 	// Draw help border
 	//
 	CacheLump(H_TOPWINDOWPIC, H_BOTTOMINFOPIC);
@@ -1651,6 +819,8 @@ void HelpPresenter(
 	VWB_DrawPic(312, 8, H_RIGHTWINDOWPIC);
 	VWB_DrawPic(8, 176, H_BOTTOMINFOPIC);
 	UnCacheLump(H_TOPWINDOWPIC, H_BOTTOMINFOPIC);
+
+#endif
 
 	// Setup for text presenter
 	//
@@ -1678,11 +848,63 @@ void HelpPresenter(
 		StartCPMusic(static_cast<std::int16_t>(TEXTSONG));
 	}
 
-	// Load, present, and free help text.
-	//
-	TP_LoadScript(fname, &pi, id_cache);
-	TP_Presenter(&pi);
-	TP_FreeScript(&pi, id_cache);
+	// Only the control guide is replacement content. Narrative scripts
+    // remain byte-for-byte the original resources and use the same presenter.
+#if defined(__3DS__) || defined(_3DS)
+    pi.infoline = nullptr;
+    std::vector<char> classic_script;
+    if (id_cache == HELPTEXT)
+    {
+        const auto scheme = in_get_control_scheme();
+        const std::string gameplay = scheme == InControlScheme::classic ?
+            "D-PAD UP / DOWN: MOVE FORWARD / BACK\r"
+            "D-PAD LEFT / RIGHT: TURN\r"
+            "L / R: STRAFE LEFT / RIGHT\r"
+            "A: FIRE\r"
+            "B: USE / OPEN DOORS\r"
+            "ZL / ZR: NEXT / PREVIOUS WEAPON\r" :
+            std::string{
+            "CIRCLE PAD UP / DOWN: FORWARD / BACK\r"
+            "CIRCLE PAD LEFT / RIGHT: STRAFE\r"
+            "A / Y: TURN RIGHT / LEFT\r"
+            "B: USE / OPEN DOORS\r"
+            "R: FIRE\r"
+            "D-PAD RIGHT / LEFT: NEXT / PREV WEAPON\r"} +
+            (scheme == InControlScheme::modern_cstick ? "C-STICK: TURN LEFT / RIGHT\r" : "");
+        const std::string manual = std::string{"^ST0^CE"} + in_control_scheme_name(scheme) + " CONTROLS\r\r" + gameplay +
+            "X: TOGGLE AUTOMAP\r"
+            "START: PAUSE / OPEN TERMINAL\r"
+            "^EP^ST0^CETERMINAL AND AUTOMAP\r\r"
+            "D-PAD: SELECT MENU OPTIONS\r"
+            "A: SELECT / CONFIRM\r"
+            "B: BACK / CANCEL\r"
+            "LEFT / RIGHT: CHANGE VALUES\r"
+            "IN DOCUMENTS: UP / DOWN SCROLL\r"
+            "LEFT / RIGHT: PREVIOUS / NEXT PAGE\r"
+            "THE AUTOMAP, MESSAGES AND EKG APPEAR\r"
+            "ON THE LOWER SCREEN DURING PLAY.\r"
+            "RUN SPEED USES THE ALWAYS RUN SWITCH.\r"
+            "START + SELECT: EMERGENCY EXIT\r"
+            "^EP^XX";
+        classic_script.assign(manual.begin(), manual.end());
+        classic_script.push_back(0);
+        pi.scriptstart = classic_script.data();
+        pi.script[0] = classic_script.data();
+        TP_InitScript(&pi);
+    }
+    else
+#endif
+    {
+        TP_LoadScript(fname, &pi, id_cache);
+    }
+    TP_Presenter(&pi);
+#if defined(__3DS__) || defined(_3DS)
+    if (id_cache != HELPTEXT)
+#endif
+    { TP_FreeScript(&pi, id_cache); }
+#if defined(__3DS__) || defined(_3DS)
+    else { TP_FreeScript(&pi, 0); }
+#endif
 
 	MenuFadeOut();
 
@@ -1710,12 +932,19 @@ void US_ControlPanel(
 	const auto guard_flag = bstone::make_scope_exit(
 		[&]()
 		{
+#if defined(__3DS__) || defined(_3DS)
+            bstone::n3ds_menu::end();
+#endif
 			is_full_menu_active = false;
 			sd_pause_scene_sfx(false);
 		});
 
 	// BBi
 	const auto& assets_info = get_assets_info();
+
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::begin(assets_info.is_ps(), ingame);
+#endif
 
 	menu_background_color = (
 		(assets_info.is_aog_sw_v3_0() || assets_info.is_aog_full_v3_0()) ?
@@ -1873,9 +1102,13 @@ void DrawMainMenu()
 	CA_CacheScreen(BACKGROUND_SCREENPIC);
 	ControlPanelAlloc();
 
+    // Keep the backing template needed by existing submenus and dialogs, but
+    // never write the old main menu title, instructions or options underneath.
 	ClearMScreen();
+#if !defined(__3DS__) && !defined(_3DS)
 	DrawMenuTitle("MAIN OPTIONS");
 	DrawInstructions(IT_STANDARD);
+#endif
 
 	//
 	// CHANGE "MISSION" AND "DEMO"
@@ -1896,6 +1129,9 @@ void DrawMainMenu()
 	fontnumber = 4; // COAL
 
 	DrawMenu(&MainItems, &MainMenu[0]);
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::show(MainItems, MainMenu, ingame, get_assets_info().is_ps());
+#endif
 
 	VW_UpdateScreen();
 }
@@ -2226,6 +1462,16 @@ secondpart:
 void DrawMenuTitle(
 	const char* title)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        bstone::n3ds_menu::set_header(title);
+        fontnumber = 4;
+        WindowX = PrintX = 32; WindowY = PrintY = 32;
+        WindowW = 244; WindowH = 20;
+        return;
+    }
+#endif
 	fontnumber = 3;
 	CA_CacheGrChunk(STARTFONT + fontnumber);
 
@@ -2257,6 +1503,15 @@ const std::int16_t INSTRUCTIONS_Y_POS = 154 + 10;
 void DrawInstructions(
 	inst_type Type)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        bstone::n3ds_menu::set_footer(Type == IT_SOUND_VOLUME ?
+            "UP/DN SELECT   LEFT/RIGHT VOLUME   B BACK" :
+            "A SELECT   B BACK   D-PAD NAVIGATE");
+        return;
+    }
+#endif
 	const char* instr[MAX_INSTRUCTIONS] = {
 		"UP/DN SELECTS - ENTER CHOOSES - ESC EXITS",
 		"PRESS ANY KEY TO CONTINUE",
@@ -2338,12 +1593,18 @@ void DrawNewGame()
 void DrawNewGameDiff(
 	std::int16_t w)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	VWB_DrawPic(192, 77, w + C_BABYMODEPIC);
 }
 
 void DrawEpisodePic(
 	std::int16_t w)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	VWB_DrawPic(176, 72, w + C_EPISODE1PIC);
 }
 
@@ -2497,6 +1758,9 @@ void DrawSwitchMenu()
 void DrawAllSwitchLights(
 	std::int16_t which)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	std::int16_t i;
 	std::uint16_t Shape;
 
@@ -2631,34 +1895,6 @@ void DrawSwitchDescription(
 	US_PrintCentered(instr[which]);
 }
 
-struct SoundDriverItem
-{
-	AudioDriverType type{};
-	std::string name{};
-}; // SoundDriverItem
-
-constexpr auto sound_driver_count = 2;
-
-const SoundDriverItem sound_drivers[sound_driver_count] =
-{
-	SoundDriverItem{AudioDriverType::auto_detect, "AUTO-DETECT"},
-	SoundDriverItem{AudioDriverType::system, "SYSTEM"},
-};
-
-struct SoundOpl3TypeItem
-{
-	bstone::Opl3Type type{};
-	std::string name{};
-}; // SoundOpl3TypeItem
-
-constexpr auto sound_opl3_type_count = 2;
-
-const SoundOpl3TypeItem sound_opl3_types[sound_opl3_type_count] =
-{
-	SoundOpl3TypeItem{bstone::Opl3Type::dbopl, "DBOPL"},
-	SoundOpl3TypeItem{bstone::Opl3Type::nuked, "NUKED"},
-};
-
 void digitized_sfx_carousel(
 	int item_index,
 	bool,
@@ -2703,104 +1939,10 @@ const char* get_sfx_type_string(
 	}
 }
 
-auto sound_driver_index = 0;
-
-void initialize_sound_driver_index()
-{
-	switch (sd_get_audio_driver_type())
-	{
-		case AudioDriverType::system:
-			sound_driver_index = 1;
-			break;
-
-		case AudioDriverType::auto_detect:
-		default:
-			sound_driver_index = 0;
-			break;
-	}
-}
-
-void sound_driver_carousel(
-	const int item_index,
-	const bool is_left,
-	const bool is_right)
-{
-	const auto delta = (is_left ? -1 : (is_right ? 1 : 0));
-
-	sound_driver_index += delta;
-
-	if (sound_driver_index < 0)
-	{
-		sound_driver_index = sound_driver_count - 1;
-	}
-	else if (sound_driver_index >= sound_driver_count)
-	{
-		sound_driver_index = 0;
-	}
-
-	sd_set_audio_driver_type(sound_drivers[sound_driver_index].type);
-	sd_shutdown();
-	sd_startup();
-
-	DrawSoundMenu();
-	DrawAllSoundLights(static_cast<std::int16_t>(item_index));
-
-	TicDelay(20);
-}
-
-auto sound_opl3_type_index = 0;
-
-void initialize_sound_opl3_type_index()
-{
-	switch (sd_get_opl3_type())
-	{
-		case bstone::Opl3Type::dbopl:
-		default:
-			sound_opl3_type_index = 0;
-			break;
-
-		case bstone::Opl3Type::nuked:
-			sound_opl3_type_index = 1;
-			break;
-	}
-}
-
-void sound_opl3_type_carousel(
-	const int item_index,
-	const bool is_left,
-	const bool is_right)
-{
-	const auto delta = (is_left ? -1 : (is_right ? 1 : 0));
-
-	sound_opl3_type_index += delta;
-
-	if (sound_opl3_type_index < 0)
-	{
-		sound_opl3_type_index = sound_opl3_type_count - 1;
-	}
-	else if (sound_opl3_type_index >= sound_opl3_type_count)
-	{
-		sound_opl3_type_index = 0;
-	}
-
-	sd_set_opl3_type(sound_opl3_types[sound_opl3_type_index].type);
-	sd_shutdown();
-	sd_startup();
-
-	DrawSoundMenu();
-	DrawAllSoundLights(static_cast<std::int16_t>(item_index));
-
-	TicDelay(20);
-}
-
 void CP_Sound(
 	std::int16_t)
 {
-	initialize_sound_driver_index();
-	initialize_sound_opl3_type_index();
-	SndMenu[1].carousel_func_ = digitized_sfx_carousel;
-	SndMenu[4].carousel_func_ = sound_driver_carousel;
-	SndMenu[5].carousel_func_ = sound_opl3_type_carousel;
+    SndMenu[1].carousel_func_ = digitized_sfx_carousel;
 
 	std::int16_t which;
 
@@ -2893,6 +2035,9 @@ void DrawSoundMenu()
 void DrawAllSoundLights(
 	std::int16_t which)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	std::int16_t i;
 	std::uint16_t Shape;
 
@@ -2946,24 +2091,6 @@ void DrawAllSoundLights(
 				}
 				break;
 
-			case 4:
-				draw_carousel(
-					i,
-					&SndItems,
-					SndMenu,
-					sound_drivers[sound_driver_index].name
-				);
-				continue;
-
-			case 5:
-				draw_carousel(
-					i,
-					&SndItems,
-					SndMenu,
-					sound_opl3_types[sound_opl3_type_index].name
-				);
-				continue;
-
 			default:
 				continue;
 			}
@@ -2984,6 +2111,19 @@ char LOADSAVE_GAME_MSG[2][25] = {
 void DrawLSAction(
 	std::int16_t which)
 {
+#if defined(__3DS__) || defined(_3DS)
+    // The real save-game reader owns the new loading presentation. Avoid an
+    // extra legacy progress page just before its first frame. Saving is unchanged.
+    if (which == 0) { return; }
+    if (bstone::n3ds_menu::active())
+    {
+        Message(which ? "SAVING GAME..." : "LOADING GAME...");
+        bstone::n3ds_menu::set_header(which ? "SAVE GAME" : "LOAD GAME");
+        bstone::n3ds_menu::set_footer("PLEASE WAIT");
+        VW_UpdateScreen();
+        return;
+    }
+#endif
 	std::int8_t total[] = {19, 19};
 
 	VW_FadeOut();
@@ -3027,7 +2167,7 @@ std::int16_t CP_LoadGame(
 
 			DrawLSAction(0); // Testing...
 
-			auto name_path = get_profile_dir() + name;
+			auto name_path = get_profile_read_path(name);
 
 			loadedgame = LoadTheGame(name_path);
 			return loadedgame;
@@ -3049,7 +2189,7 @@ restart:
 			auto name = get_saved_game_base_name();
 			name += static_cast<char>('0' + which);
 
-			auto name_path = get_profile_dir() + name;
+			auto name_path = get_profile_read_path(name);
 
 			DrawLSAction(0);
 
@@ -3097,6 +2237,9 @@ restart:
 void TrackWhichGame(
 	std::int16_t w)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	static std::int16_t lastgameon = 0;
 
 	PrintLSEntry(lastgameon, ENABLED_TEXT_COLOR);
@@ -3146,6 +2289,9 @@ void PrintLSEntry(
 	std::int16_t w,
 	std::int16_t color)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	SETFONTCOLOR(color, BKGDCOLOR);
 	DrawOutline(LSM_X + LSItems.indent, LSM_Y + w * LSItems.y_spacing - 2, LSM_W - LSItems.indent, 8, color, color);
 
@@ -3330,244 +2476,31 @@ void CP_ExitOptions(
 	StartGame = 1;
 }
 
-void CP_Control(
-	std::int16_t)
+void CP_Control(std::int16_t)
 {
-
-	enum
-	{
-		MOUSEENABLE,
-		MOUSESENS,
-		CUSTOMIZE,
-	};
-
-	std::int16_t which;
-
-	CA_CacheScreen(BACKGROUND_SCREENPIC);
-
-	DrawCtlScreen();
-	MenuFadeIn();
-	WaitKeyUp();
-
-	do
-	{
-		which = HandleMenu(&CtlItems, &CtlMenu[0], nullptr);
-		switch (which)
-		{
-		case MOUSEENABLE:
-			in_set_is_mouse_enabled(!in_is_mouse_enabled());
-			DrawCtlScreen();
-			CusItems.curpos = -1;
-			ShootSnd();
-			break;
-
-		case MOUSESENS:
-		case CUSTOMIZE:
-			DrawCtlScreen();
-			MenuFadeIn();
-			WaitKeyUp();
-			break;
-		}
-	} while (which >= 0);
-
-	MenuFadeOut();
-}
-
-void DrawMousePos()
-{
-	const int thumb_width = 16;
-	const int track_width = 160;
-	const int slide_width = track_width - thumb_width;
-	const int max_mouse_delta = max_mouse_sensitivity - min_mouse_sensitivity;
-
-	VWB_Bar(
-		74,
-		92,
-		track_width,
-		8,
-		HIGHLIGHT_BOX_COLOR);
-
-	DrawOutline(
-		73,
-		91,
-		track_width + 1,
-		9,
-		ENABLED_TEXT_COLOR,
-		ENABLED_TEXT_COLOR);
-
-	VWB_Bar(
-		74 + ((slide_width * in_get_mouse_sensitivity()) / max_mouse_delta),
-		92,
-		thumb_width,
-		8,
-		HIGHLIGHT_TEXT_COLOR);
-}
-
-void DrawMouseSens()
-{
-	ClearMScreen();
-	DrawMenuTitle("MOUSE SENSITIVITY");
-	DrawInstructions(IT_MOUSE_SEN);
-
-	fontnumber = 4;
-
-	SETFONTCOLOR(HIGHLIGHT_TEXT_COLOR, TERM_BACK_COLOR);
-	PrintX = 36;
-	PrintY = 91;
-	US_Print("SLOW");
-	PrintX = 242;
-	US_Print("FAST");
-
-	DrawMousePos();
-
-	VW_UpdateScreen();
-	MenuFadeIn();
-}
-
-void MouseSensitivity(
-	std::int16_t)
-{
-	ControlInfo ci;
-	std::int16_t exit = 0;
-
-	const auto oldMA = in_get_mouse_sensitivity();
-
-	DrawMouseSens();
-	do
-	{
-		ReadAnyControl(&ci);
-		switch (ci.dir)
-		{
-		case dir_North:
-		case dir_West:
-			if (in_get_mouse_sensitivity() > 0)
-			{
-				in_set_mouse_sensitivity(in_get_mouse_sensitivity() - 1);
-				DrawMousePos();
-				VW_UpdateScreen();
-				menu_play_move_gun_1_sound();
-
-				while (Keyboard[ScanCode::sc_left_arrow])
-				{
-					in_handle_events();
-				}
-
-				WaitKeyUp();
-			}
-			break;
-
-		case dir_South:
-		case dir_East:
-			if (in_get_mouse_sensitivity() < max_mouse_sensitivity)
-			{
-				in_set_mouse_sensitivity(in_get_mouse_sensitivity() + 1);
-				DrawMousePos();
-				VW_UpdateScreen();
-				menu_play_move_gun_1_sound();
-
-				while (Keyboard[ScanCode::sc_right_arrow])
-				{
-					in_handle_events();
-				}
-
-				WaitKeyUp();
-			}
-			break;
-
-		default:
-			break;
-		}
-
-		if (ci.button0 || Keyboard[ScanCode::sc_space] || Keyboard[ScanCode::sc_return])
-		{
-			exit = 1;
-		}
-		else if (ci.button1 || Keyboard[ScanCode::sc_escape])
-		{
-			exit = 2;
-		}
-
-	} while (!exit);
-
-	if (exit == 2)
-	{
-		in_set_mouse_sensitivity(oldMA);
-		menu_play_esc_pressed_sound();
-	}
-	else
-	{
-		ShootSnd();
-	}
-
-	WaitKeyUp();
-	MenuFadeOut();
-}
-
-// --------------------------------------------------------------------------
-// DrawCtlScreen() - DRAW CONTROL MENU SCREEN
-// --------------------------------------------------------------------------
-void DrawCtlScreen()
-{
-	const std::int16_t Y_CTL_PIC_OFS = 3;
-
-	std::int16_t i;
-	std::int16_t x;
-	std::int16_t y;
-
-	ClearMScreen();
-	DrawMenuTitle("CONTROL");
-	DrawInstructions(IT_STANDARD);
-
-	WindowX = 0;
-	WindowW = 320;
-	SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
-
-	if (MousePresent)
-	{
-		CtlMenu[0].active = AT_ENABLED;
-		CtlMenu[1].active = AT_ENABLED;
-	}
-
-	CtlMenu[1].active = static_cast<activetypes>(in_is_mouse_enabled());
-
-	fontnumber = 4;
-	DrawMenu(&CtlItems, &CtlMenu[0]);
-
-	x = CTL_X + CtlItems.indent - 24;
-	y = CTL_Y + Y_CTL_PIC_OFS;
-	if (in_is_mouse_enabled())
-	{
-		VWB_DrawPic(x, y, C_SELECTEDPIC);
-	}
-	else
-	{
-		VWB_DrawPic(x, y, C_NOTSELECTEDPIC);
-	}
-
-	//
-	// PICK FIRST AVAILABLE SPOT
-	//
-
-	if (CtlItems.curpos < 0 || !CtlMenu[static_cast<int>(CtlItems.curpos)].active)
-	{
-		for (i = 0; i < CtlItems.amount; ++i)
-		{
-			if (CtlMenu[i].active)
-			{
-				CtlItems.curpos = static_cast<std::int8_t>(i);
-				break;
-			}
-		}
-	}
-
-	DrawMenuGun(&CtlItems);
-	VW_UpdateScreen();
-}
-
-void CustomControls(
-	std::int16_t)
-{
-	binds_draw_menu();
+    std::int16_t which;
+    do
+    {
+        ClearMScreen();
+        DrawMenuTitle("CONTROL SETTINGS");
+        DrawInstructions(IT_STANDARD);
+        DrawMenu(&CtlItems, CtlMenu);
+        VW_UpdateScreen();
+        MenuFadeIn();
+        WaitKeyUp();
+        which = HandleMenu(&CtlItems, CtlMenu, nullptr);
+        if (which == 0)
+        {
+            in_set_control_scheme(static_cast<InControlScheme>(
+                (static_cast<int>(in_get_control_scheme()) + 1) % static_cast<int>(InControlScheme::count)));
+            ShootSnd();
+        }
+        else if (which == 1)
+        {
+            HelpPresenter(nullptr, false, HELPTEXT, false, "CONTROL GUIDE");
+        }
+    } while (which >= 0);
+    MenuFadeOut();
 }
 
 void CP_Quit()
@@ -3585,6 +2518,9 @@ void CP_Quit()
 // ---------------------------------------------------------------------------
 void ClearMScreen()
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { bstone::n3ds_menu::clear_content(); return; }
+#endif
 	VWB_Bar(SCREEN_X, SCREEN_Y, SCREEN_W, SCREEN_H, menu_background_color);
 }
 
@@ -3647,6 +2583,10 @@ void SetupControlPanel()
 	// BBi
 	SwitchItems.amount = (assets_info.is_ps() ? 7 : 9);
 	SwitchItems.y = MENU_Y + (assets_info.is_ps() ? 11 : 3);
+#if defined(__3DS__) || defined(_3DS)
+    switch2_menu[SW2_NO_WEAPON_BOBBING].active = AT_ENABLED;
+    switch2_menu[SW2_PS_MAP_IN_STATS].active = assets_info.is_ps() ? AT_ENABLED : AT_DISABLED;
+#endif
 	// BBi
 
 	ControlPanelAlloc();
@@ -3670,7 +2610,7 @@ void ReadGameNames()
 		auto name = get_saved_game_base_name();
 		name += static_cast<char>('0' + i);
 
-		auto name_path = get_profile_dir() + name;
+		auto name_path = get_profile_read_path(name);
 
 		bstone::FileStream stream{};
 
@@ -3707,6 +2647,9 @@ void ReadGameNames()
 
 void CleanupControlPanel()
 {
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::hide();
+#endif
 	if (!loadedgame)
 	{
 		FreeMusic();
@@ -3770,6 +2713,14 @@ std::int16_t HandleMenu(
 	void(*routine)(std::int16_t w))
 {
 #define box_on item_i->cursor.on
+#if defined(__3DS__) || defined(_3DS)
+    // A/B are physical held states, not keyboard edges. A completed action
+    // may immediately re-enter HandleMenu (switches) or its parent (B). Wait
+    // for that press to end before accepting the next one. WaitKeyUp pumps
+    // input and the terminal's paced idle; there is no timed debounce, no
+    // gameplay binding change, and D-pad hold/repeat remains unchanged.
+    WaitKeyUp();
+#endif
 	std::int8_t key;
 	static std::int16_t redrawitem = 1;
 
@@ -3785,7 +2736,11 @@ std::int16_t HandleMenu(
 
 	SetTextColor(items + which, 1);
 
-	if (redrawitem)
+	if (redrawitem
+#if defined(__3DS__) || defined(_3DS)
+        && !bstone::n3ds_menu::active()
+#endif
+    )
 	{
 		ShadowPrint(
 			(items + which)->string.c_str(),
@@ -4028,6 +2983,11 @@ std::int16_t HandleMenu(
 	VW_UpdateScreen();
 
 	item_i->curpos = static_cast<std::int8_t>(which);
+#if defined(__3DS__) || defined(_3DS)
+    // Keep the native menu over palette-only fade frames. The destination
+    // releases it when its finished content reaches VW_UpdateScreen.
+    if (item_i == &MainItems) { bstone::n3ds_menu::leave_on_next_update(); }
+#endif
 
 	switch (exit)
 	{
@@ -4086,6 +3046,9 @@ void EraseGun(
 	std::int16_t which)
 {
 	static_cast<void>(x);
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 
 	VWB_Bar(item_i->cursor.x, y + item_i->cursor.y_ofs, item_i->cursor.width, item_i->cursor.height, menu_background_color);
 	SetTextColor(items + which, 0);
@@ -4107,6 +3070,15 @@ void DrawGun(
 {
 	static_cast<void>(x);
 
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        *y = basey + which * item_i->y_spacing;
+        bstone::n3ds_menu::select(which);
+        if (routine) { routine(which); }
+        return;
+    }
+#endif
 	*y = basey + which * item_i->y_spacing;
 
 	VWB_Bar(item_i->cursor.x, *y + item_i->cursor.y_ofs, item_i->cursor.width, item_i->cursor.height, HIGHLIGHT_BOX_COLOR);
@@ -4140,6 +3112,9 @@ void TicDelay(
 	do
 	{
 		ReadAnyControl(&ci);
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::idle();
+#endif
 	} while (TimeCount < count && ci.dir != dir_None);
 }
 
@@ -4160,6 +3135,13 @@ void DrawMenu(
 
 	WindowW = 320;
 	WindowH = 200;
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        bstone::n3ds_menu::show_list(*item_i, items);
+        return;
+    }
+#endif
 
 	for (i = 0; i < item_i->amount; i++)
 	{
@@ -4208,6 +3190,9 @@ void WaitKeyUp()
 			Keyboard[ScanCode::sc_space] ||
 			Keyboard[ScanCode::sc_return] ||
 			Keyboard[ScanCode::sc_escape]);
+#if defined(__3DS__) || defined(_3DS)
+        if (!quit) { bstone::n3ds_menu::idle(); }
+#endif
 	}
 }
 
@@ -4235,49 +3220,7 @@ void ReadAnyControl(
 		ci->button3 = 0;
 	}
 
-	if (in_is_mouse_enabled())
-	{
-		int mousex;
-		int mousey;
 
-		// READ MOUSE MOTION COUNTERS
-		// RETURN DIRECTION
-		// HOME MOUSE
-		// CHECK MOUSE BUTTONS
-
-		in_get_mouse_deltas(mousex, mousey);
-		in_clear_mouse_deltas();
-
-		const int DELTA_THRESHOLD = 10;
-
-		if (mousey < -DELTA_THRESHOLD)
-		{
-			ci->dir = dir_North;
-		}
-		else if (mousey > DELTA_THRESHOLD)
-		{
-			ci->dir = dir_South;
-		}
-
-		if (mousex < -DELTA_THRESHOLD)
-		{
-			ci->dir = dir_West;
-		}
-		else if (mousex > DELTA_THRESHOLD)
-		{
-			ci->dir = dir_East;
-		}
-
-		int buttons = IN_MouseButtons();
-
-		if (buttons != 0)
-		{
-			ci->button0 = buttons & 1;
-			ci->button1 = buttons & 2;
-			ci->button2 = buttons & 4;
-			ci->button3 = false;
-		}
-	}
 	#if defined(__3DS__) || defined(_3DS)
 
 		const u32 keys = hidKeysHeld();
@@ -4305,12 +3248,28 @@ void ReadAnyControl(
 
 std::int16_t Confirm(const char* string)
 {
+#if defined(__3DS__) || defined(_3DS)
+    const bool owns_terminal = !bstone::n3ds_menu::active();
+    if (owns_terminal) { bstone::n3ds_menu::begin(get_assets_info().is_ps(), ingame); }
+    const auto terminal_guard = bstone::make_scope_exit([&]()
+    { if (owns_terminal) { bstone::n3ds_menu::end(); } });
+#endif
     std::int16_t xit = 0;
     std::int16_t x, y;
     std::int16_t tick = 0;
     std::int16_t whichsnd[2] = {ESCPRESSEDSND, SHOOTSND};
 
+#if defined(__3DS__) || defined(_3DS)
+    Message(string == QuitToDosStr ? "LOG OFF AND EXIT THE GAME?" : string);
+    if (bstone::n3ds_menu::active())
+    {
+        bstone::n3ds_menu::set_header("CONFIRMATION");
+        bstone::n3ds_menu::set_footer("A CONFIRM   B CANCEL");
+        VW_UpdateScreen();
+    }
+#else
     Message(string);
+#endif
 
     SETFONTCOLOR(BORDER_TEXT_COLOR, BORDER_MED_COLOR);
     CA_CacheGrChunk(STARTFONT + fontnumber);
@@ -4333,7 +3292,14 @@ std::int16_t Confirm(const char* string)
 
     do
     {
-        if (TimeCount >= 10)
+#if defined(__3DS__) || defined(_3DS)
+        if (bstone::n3ds_menu::active()) { CycleColors(); }
+#endif
+        if (TimeCount >= 10
+#if defined(__3DS__) || defined(_3DS)
+            && !bstone::n3ds_menu::active()
+#endif
+        )
         {
             switch (tick)
             {
@@ -4431,6 +3397,57 @@ std::int16_t Confirm(const char* string)
 void Message(
 	const char* string)
 {
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::suspend_loading();
+    if (bstone::n3ds_menu::active())
+    {
+        bstone::n3ds_menu::clear_content();
+        bstone::n3ds_menu::set_header("INFORMATION");
+        bstone::n3ds_menu::set_footer("A CONTINUE   B BACK");
+        fontnumber = 4;
+        CA_CacheGrChunk(STARTFONT + fontnumber);
+        const auto* face = reinterpret_cast<const fontstruct*>(grsegs[STARTFONT + fontnumber].data());
+        std::vector<std::string> lines;
+        std::string line;
+        std::string word;
+        auto append_word = [&]()
+        {
+            if (word.empty()) { return; }
+            const auto trial = line.empty() ? word : line + " " + word;
+            int width = 0, height = 0;
+            VW_MeasurePropString(trial.c_str(), &width, &height);
+            if (width > 280 && !line.empty()) { lines.push_back(line); line = word; }
+            else { line = trial; }
+            word.clear();
+        };
+        for (const char* p = string; ; ++p)
+        {
+            if (*p == ' ' || *p == '\n' || *p == '\r' || !*p)
+            {
+                append_word();
+                if (*p == '\n' || *p == '\r' || !*p)
+                { lines.push_back(line); line.clear(); }
+                if (!*p) { break; }
+            }
+            else { word += *p; }
+        }
+        const int spacing = face->height + 3;
+        // Center in the expanded logical terminal body (y=28..179).
+        int y = std::max(28, 104 - int(lines.size()) * spacing / 2);
+        SETFONTCOLOR(ENABLED_TEXT_COLOR, TERM_BACK_COLOR);
+        for (const auto& value : lines)
+        {
+            int width = 0, height = 0;
+            VW_MeasurePropString(value.c_str(), &width, &height);
+            PrintX = WindowX = (320 - width) / 2;
+            PrintY = y;
+            US_Print(value.c_str());
+            y += spacing;
+        }
+        VW_UpdateScreen();
+        return;
+    }
+#endif
 	std::int16_t h = 0, w = 0, mw = 0;
 	std::size_t i;
 	fontstruct* font;
@@ -4727,6 +3744,13 @@ void draw_volume_control(
 
 void draw_volume_controls()
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        bstone::n3ds_menu::show_meters(volume_index, volumes[0].get(), volumes[1].get(), sd_max_volume);
+        return;
+    }
+#endif
 	for (int i = 0; i < 2; ++i)
 	{
 		draw_volume_control(i, volumes[i].get(), i == volume_index);
@@ -4739,6 +3763,9 @@ void cp_sound_volume(
 	ClearMScreen();
 	DrawMenuTitle("SOUND VOLUME");
 	DrawInstructions(IT_SOUND_VOLUME);
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { draw_volume_controls(); }
+#endif
 
 	fontnumber = 4;
 
@@ -4792,6 +3819,9 @@ void cp_sound_volume(
 			while (Keyboard[ScanCode::sc_up_arrow])
 			{
 				in_handle_events();
+#if defined(__3DS__) || defined(_3DS)
+                bstone::n3ds_menu::idle();
+#endif
 			}
 			break;
 
@@ -4807,6 +3837,9 @@ void cp_sound_volume(
 			while (Keyboard[ScanCode::sc_down_arrow])
 			{
 				in_handle_events();
+#if defined(__3DS__) || defined(_3DS)
+                bstone::n3ds_menu::idle();
+#endif
 			}
 			break;
 
@@ -4823,6 +3856,9 @@ void cp_sound_volume(
 			while (Keyboard[ScanCode::sc_left_arrow])
 			{
 				in_handle_events();
+#if defined(__3DS__) || defined(_3DS)
+                bstone::n3ds_menu::idle();
+#endif
 			}
 			break;
 
@@ -4837,6 +3873,9 @@ void cp_sound_volume(
 			while (Keyboard[ScanCode::sc_right_arrow])
 			{
 				in_handle_events();
+#if defined(__3DS__) || defined(_3DS)
+                bstone::n3ds_menu::idle();
+#endif
 			}
 			break;
 
@@ -4867,6 +3906,7 @@ void cp_sound_volume(
 			VW_UpdateScreen();
 		}
 
+        CycleColors();
 		quit = (ci.button1 || Keyboard[ScanCode::sc_escape]);
 	}
 
@@ -4880,8 +3920,11 @@ void draw_video_descriptions(
 	std::int16_t which)
 {
 	const char* instructions[] = {
-		"TOGGLES BETWEEN WIDESCREEN AND 4X3 MODES",
-		"TOGGLES STRETCHING OF USER INTERFACE",
+		"5:3 FULL SCREEN OR 4:3 WITH SIDE BARS",
+		"TOGGLES TERMINAL CRT ANIMATION",
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+		"OPTIONAL PACK; MISSING WEAPONS USE ORIGINALS",
+#endif
 	};
 
 	fontnumber = 2;
@@ -4921,6 +3964,9 @@ void video_draw_menu()
 void video_draw_switch(
 	std::int16_t which)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	std::uint16_t Shape;
 
 	for (int i = 0; i < video_items.amount; i++)
@@ -4946,8 +3992,8 @@ void video_draw_switch(
 				}
 				break;
 
-			case mvl_stretch_ui:
-				if (vid_cfg_is_ui_stretched())
+			case mvl_menu_crt:
+				if (vid_cfg_menu_crt())
 				{
 					Shape++;
 				}
@@ -5035,6 +4081,14 @@ void draw_carousel(
 void cp_video(
 	std::int16_t)
 {
+#if defined(__3DS__) || defined(_3DS)
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+    bstone::n3ds_weapons::refresh();
+    (void)vid_cfg_ai_weapons();
+#endif
+    video_items.amount = video_menu_item_count;
+    video_items.curpos = 0;
+#endif
 	std::int16_t which;
 
 	CA_CacheScreen(BACKGROUND_SCREENPIC);
@@ -5060,12 +4114,41 @@ void cp_video(
 			VL_RefreshScreen();
 			break;
 
-		case mvl_stretch_ui:
-			vid_cfg_set_is_ui_stretched(!vid_cfg_is_ui_stretched());
+		case mvl_menu_crt:
+			vid_cfg_menu_crt(!vid_cfg_menu_crt());
 			ShootSnd();
 			video_draw_switch(video_items.curpos);
 			VL_RefreshScreen();
 			break;
+
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+        case mvl_ai_weapons:
+        {
+            const bool was_enabled = vid_cfg_ai_weapons();
+            if (was_enabled) { vid_cfg_ai_weapons(false); }
+            else
+            {
+                bstone::n3ds_weapons::refresh();
+                vid_cfg_ai_weapons(true);
+            }
+            if (!bstone::n3ds_weapons::available())
+            {
+                const auto message = std::string{"AI ENHANCED PACK UNAVAILABLE.\n"} +
+                    bstone::n3ds_weapons::status() + "\n"
+                    "INSTALL A VALID PACK FOR THIS GAME\n"
+                    "IN /3DS/BSTONE/AI-WEAPONS/.\n"
+                    "ORIGINAL WEAPONS REMAIN ACTIVE.";
+                Message(message.c_str());
+                IN_Ack();
+                WaitKeyUp();
+                video_draw_menu();
+            }
+            ShootSnd();
+            VL_RefreshScreen();
+            break;
+        }
+
+#endif
 
 		default:
 			break;
@@ -5111,6 +4194,9 @@ void draw_switch2_description(
 void draw_all_switch2_lights(
 	std::int16_t which)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active()) { return; }
+#endif
 	std::uint16_t shape;
 
 	for (auto i = 0; i < switches2_items.amount; ++i)
@@ -5274,3 +4360,59 @@ void menu_enable_all_episodes()
 	}
 }
 // BBi
+
+std::string cp_get_terminal_label(const CP_iteminfo& info, const CP_itemtype* items, int index)
+{
+    if (&info == &LSItems)
+    {
+        return std::to_string(index + 1) + "  " + (SaveGamesAvail[index] ?
+            std::string(SaveGameNames[index]) : std::string("-- EMPTY --"));
+    }
+    auto label = items[index].string;
+    std::replace(label.begin(), label.end(), '\n', ' ');
+    if (label.empty()) { return label; }
+    bool value = false;
+    bool toggle = false;
+    if (&info == &SwitchItems)
+    {
+        // This legacy CVar selects the full/local X stats map. It does not
+        // rotate the permanent native lower-screen map.
+        if (index == SW_ROTATED_AUTOMAP)
+        { return "STATS MAP: " + std::string(am_rotatable() ? "LOCAL" : "FULL"); }
+        const bool states[] = {!gp_no_shading(), !gp_hide_attacker_info(),
+            !gp_is_ceiling_solid(), !gp_is_flooring_solid(), gp_no_wall_hit_sfx(),
+            gp_is_always_run(), gp_quit_on_escape(), gp_use_heart_beat_sfx(), am_rotatable()};
+        value = states[index]; toggle = true;
+    }
+    else if (&info == &switches2_items)
+    {
+        if (index == SW2_PS_MAP_IN_STATS && get_assets_info().is_aog()) { return {}; }
+        const bool states[] = {gp_no_intro_outro(), gp_no_fade_in_or_out(),
+            gp_no_weapon_bobbing(), gp_vanilla_fizzle_fx(), gp_ps_map_in_stats()};
+        value = states[index]; toggle = true;
+    }
+    else if (&info == &SndItems)
+    {
+        if (index == 1) { return label + ": < " + get_sfx_type_string(sd_cfg_get_sfx_type()) + " >"; }
+        value = index == 0 ? sd_is_sound_enabled() : index == 2 ?
+            sd_cfg_get_is_sfx_digitized() : sd_is_music_enabled();
+        toggle = true;
+    }
+    else if (&info == &CtlItems)
+    { return index == 0 ? std::string{"CONTROL SCHEME: "} + in_control_scheme_name(in_get_control_scheme()) : "BUTTON GUIDE"; }
+    else if (&info == &video_items)
+    {
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+        if (index == mvl_ai_weapons)
+        {
+            return "AI ENHANCED WEAPON DESIGNS: " + std::string(vid_cfg_ai_weapons() ? "ON" :
+                bstone::n3ds_weapons::available() ? "OFF" : "OFF [NO PACK]");
+        }
+#endif
+        if (index == mvl_menu_crt) { return "MENU CRT: " + std::string(vid_cfg_menu_crt() ? "ON" : "OFF"); }
+        return "VIEW ASPECT: " + std::string(vid_cfg_is_widescreen() ? "5:3 NATIVE" : "4:3");
+    }
+    else if (&info == &NewEitems && !EpisodeSelect[index]) { label += " [LOCKED]"; }
+    if (toggle) { label += value ? ": ON" : ": OFF"; }
+    return label;
+}

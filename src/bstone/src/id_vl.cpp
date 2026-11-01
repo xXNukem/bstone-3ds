@@ -13,6 +13,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_in.h"
 #include "id_vh.h"
 #include "id_vl.h"
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_menu.h"
+#include "bstone_3ds_weapons.h"
+#endif
 
 #include "bstone_algorithm.h"
 #include "bstone_assert.h"
@@ -34,16 +38,17 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 namespace {
 
-// vid_is_ui_stretched
+// Terminal animation is presentation-only; gameplay CRT remains unchanged.
+auto vid_menu_crt_cvar = bstone::CVar{
+    bstone::CVarBoolTag{}, bstone::StringView{"vid_menu_crt"},
+    bstone::CVarFlags::archive, true};
 
-constexpr auto vid_is_ui_stretched_cvar_name = bstone::StringView{"vid_is_ui_stretched"};
-constexpr auto vid_is_ui_stretched_cvar_default = false;
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+auto vid_ai_weapons_cvar = bstone::CVar{
+    bstone::CVarBoolTag{}, bstone::StringView{"vid_ai_enhanced_weapons"},
+    bstone::CVarFlags::archive, false};
 
-auto vid_is_ui_stretched_cvar = bstone::CVar{
-	bstone::CVarBoolTag{},
-	vid_is_ui_stretched_cvar_name,
-	bstone::CVarFlags::archive,
-	vid_is_ui_stretched_cvar_default};
+#endif
 
 // vid_is_widescreen
 
@@ -473,7 +478,10 @@ void vid_calculate_vga_dimensions() noexcept
 
 void vid_initialize_cvars(bstone::CVarMgr& cvar_mgr)
 {
-	cvar_mgr.add(vid_is_ui_stretched_cvar);
+	cvar_mgr.add(vid_menu_crt_cvar);
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+	cvar_mgr.add(vid_ai_weapons_cvar);
+#endif
 	cvar_mgr.add(vid_is_widescreen_cvar);
 }
 
@@ -534,7 +542,6 @@ void vid_log_common_configuration()
 	vid_log("Common configuration");
 	vid_log("--------------------");
 
-	vid_log("UI stretched: " + vid_to_string(vid_cfg_is_ui_stretched()));
 	vid_log("Widescreen: " + vid_to_string(vid_cfg_is_widescreen()));
 
 	vid_log("--------------------");
@@ -769,6 +776,13 @@ void VL_Plot(
 	std::uint8_t color,
 	bool is_transparent)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        if (x < 0 || x >= vga_ref_width || y < 0 || y >= vga_ref_height) { return; }
+        bstone::n3ds_menu::pixel(x, y);
+    }
+#endif
 	const auto offset = (y * vga_ref_width) + x;
 
 	vid_ui_buffer_[offset] = color;
@@ -801,6 +815,20 @@ void VL_Bar(
 	std::uint8_t color,
 	bool is_transparent)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        // The terminal owns the background. Legacy filled widgets erase only
+        // their previous content; native lists/meters supply the new widgets.
+        const int right = std::min(x + width, vga_ref_width);
+        const int bottom = std::min(y + height, vga_ref_height);
+        x = std::max(x, 0); y = std::max(y, 0);
+        width = right - x; height = bottom - y;
+        if (width <= 0 || height <= 0) { return; }
+        bstone::n3ds_menu::clear_ink(x, y, width, height);
+        is_transparent = true;
+    }
+#endif
 	if (x == 0 && width == vga_ref_width)
 	{
 		const auto offset = y * vga_ref_width;
@@ -1018,14 +1046,30 @@ try {
 	g_video->apply_widescreen();
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
-bool vid_cfg_is_ui_stretched() noexcept
-{
-	return vid_is_ui_stretched_cvar.get_bool();
-}
+bool vid_cfg_menu_crt() noexcept { return vid_menu_crt_cvar.get_bool(); }
+void vid_cfg_menu_crt(bool enabled) { vid_menu_crt_cvar.set_bool(enabled); }
 
-void vid_cfg_set_is_ui_stretched(bool is_enabled)
+bool vid_cfg_ai_weapons() noexcept
 {
-	vid_is_ui_stretched_cvar.set_bool(is_enabled);
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+    if (vid_ai_weapons_cvar.get_bool() && !bstone::n3ds_weapons::available())
+    {
+        vid_ai_weapons_cvar.set_bool(false);
+        bstone::n3ds_weapons::release();
+    }
+    return vid_ai_weapons_cvar.get_bool();
+#else
+    return false;
+#endif
+}
+void vid_cfg_ai_weapons(bool enabled)
+{
+#ifdef BSTONE_ENABLE_AI_WEAPONS
+    vid_ai_weapons_cvar.set_bool(enabled && bstone::n3ds_weapons::available());
+    if (!vid_ai_weapons_cvar.get_bool()) { bstone::n3ds_weapons::release(); }
+#else
+    (void)enabled;
+#endif
 }
 
 bool vid_cfg_is_widescreen() noexcept

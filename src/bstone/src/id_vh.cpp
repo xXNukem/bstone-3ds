@@ -13,6 +13,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_vh.h"
 #include "id_vl.h"
 #include "gfxv.h"
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_menu.h"
+#endif
 
 
 extern ControlInfo c;
@@ -53,6 +56,16 @@ void VW_DrawPropString(
 {
 	const auto font = reinterpret_cast<fontstruct*>(grsegs[STARTFONT + fontnumber].data());
 
+    bool paint = true;
+    bool erase = false;
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        paint = bstone::n3ds_menu::accepts_text() && fontcolor > 1;
+        erase = bstone::n3ds_menu::accepts_text() && fontcolor == backcolor;
+        bstone::n3ds_menu::text_paint(paint && !erase);
+    }
+#endif
 	int height = font->height;
 
 	int string_length = static_cast<int>(strlen(string));
@@ -69,9 +82,9 @@ void VW_DrawPropString(
 		{
 			for (int h = 0; h < height; ++h)
 			{
-				if (source[h * width] != 0)
+				if ((paint || erase) && source[h * width] != 0)
 				{
-					VL_Plot(px + w, py + h, fontcolor);
+					VL_Plot(px + w, py + h, fontcolor, erase);
 				}
 			}
 
@@ -80,6 +93,9 @@ void VW_DrawPropString(
 
 		px = static_cast<std::int16_t>(px + width);
 	}
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::text_paint(false);
+#endif
 }
 
 void VWL_MeasureString(
@@ -131,6 +147,9 @@ void VWB_DrawPic(
 	int y,
 	int chunknum)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active() && !bstone::n3ds_menu::document()) { return; }
+#endif
 	int picnum = chunknum - STARTPICS;
 	int width = pictable[picnum].width;
 	int height = pictable[picnum].height;
@@ -234,6 +253,9 @@ void LatchDrawPic(
 	int y,
 	int picnum)
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active() && !bstone::n3ds_menu::document()) { return; }
+#endif
 	int wide = pictable[picnum - STARTPICS].width;
 	int height = pictable[picnum - STARTPICS].height;
 	int source = latchpics[2 + picnum - LATCHPICS_LUMP_START];
@@ -384,6 +406,9 @@ void VW_ScreenToScreen(
 
 void VW_UpdateScreen()
 {
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::publish_destination();
+#endif
 	VL_RefreshScreen();
 }
 

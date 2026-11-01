@@ -40,7 +40,12 @@ find_library(BSTONE_CTRU_LIBRARY ctru REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
 find_library(BSTONE_CITRO2D_LIBRARY citro2d REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
 find_library(BSTONE_CITRO3D_LIBRARY citro3d REQUIRED ONLY_CMAKE_FIND_ROOT_PATH)
 
+option(BSTONE_ENABLE_AI_WEAPONS "Build experimental optional AI weapon feature (not in stable 1.0)" OFF)
 add_executable(bstone)
+if (BSTONE_ENABLE_AI_WEAPONS)
+    target_sources(bstone PRIVATE src/bstone_3ds_weapons.cpp)
+    target_compile_definitions(bstone PRIVATE BSTONE_ENABLE_AI_WEAPONS=1)
+endif()
 
 configure_file(
     "${PROJECT_SOURCE_DIR}/src/bstone_version_.h.in"
@@ -439,9 +444,20 @@ source_group("bstone" FILES ${BSTONE_BSTONE_SOURCES})
 target_sources(bstone PRIVATE
     src/bstone_3ds_automap.cpp
     src/bstone_3ds_messages.cpp
+    src/bstone_3ds_menu.cpp
     src/bstone_3ds_intro.cpp
     src/bstone_3ds_hud.cpp
+    src/bstone_game_catalog.cpp
+    src/bstone_3ds_installation.cpp
+    src/bstone_3ds_launcher.cpp
+    src/bstone_3ds_display.cpp
 )
 
 # The default build produces bstone.elf and bstone.3dsx side by side.
-ctr_create_3dsx(bstone NOSMDH)
+set(BSTONE_SMDH "${CMAKE_CURRENT_BINARY_DIR}/bstone.smdh")
+ctr_generate_smdh(OUTPUT "${BSTONE_SMDH}"
+    NAME "Blake Stone 3DS"
+    DESCRIPTION "Blake Stone: Aliens of Gold & Planet Strike for New Nintendo 3DS"
+    AUTHOR "Carlos de la Barrera Perez"
+    ICON "${CMAKE_SOURCE_DIR}/assets/bstone-3ds-icon-48.png")
+ctr_create_3dsx(bstone SMDH "${BSTONE_SMDH}")

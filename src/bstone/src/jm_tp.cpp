@@ -99,6 +99,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "gfxv.h"
 #include "3d_menu.h"
 #include "jm_tp.h"
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_menu.h"
+#endif
 
 #include "bstone_globals.h"
 #include "bstone_sprite.h"
@@ -2873,6 +2876,9 @@ void TP_HandleCodes()
 			// END OF PAGE ------------------------------------------------------
 			//
 		case TP_CNVT_CODE('E', 'P'):
+#if defined(__3DS__) || defined(_3DS)
+            bstone::n3ds_menu::document_page(pi->pagenum, pi->numpages);
+#endif
 			VW_UpdateScreen();
 
 			if (screenfaded)
@@ -2894,6 +2900,13 @@ void TP_HandleCodes()
 				TP_AnimatePage(numanims);
 				VW_UpdateScreen();
 				ReadAnyControl(&ci);
+#if defined(__3DS__) || defined(_3DS)
+                if (bstone::n3ds_menu::document())
+                {
+                    const int scroll = ci.dir == dir_North ? -1 : ci.dir == dir_South ? 1 : 0;
+                    if (scroll && bstone::n3ds_menu::scroll_document(scroll)) { ci.dir = dir_None; }
+                }
+#endif
 
 				if (Keyboard[ScanCode::sc_page_up])
 				{
@@ -2904,7 +2917,13 @@ void TP_HandleCodes()
 					ci.dir = dir_South;
 				}
 
-				if (pi->flags & TPF_CONTINUE && (ci.button0 || Keyboard[ScanCode::sc_space] || Keyboard[ScanCode::sc_return]))
+				if (pi->flags & TPF_CONTINUE && (ci.button0 ||
+#if defined(__3DS__) || defined(_3DS)
+                    (!bstone::n3ds_menu::document() && Keyboard[ScanCode::sc_space]) ||
+#else
+                    Keyboard[ScanCode::sc_space] ||
+#endif
+                    Keyboard[ScanCode::sc_return]))
 				{
 					EscPressed = false;
 					flags &= ~fl_presenting;
@@ -2995,6 +3014,13 @@ void TP_HandleCodes()
 
 void TP_PrintPageNumber()
 {
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::document())
+    {
+        bstone::n3ds_menu::document_page(pi->pagenum, pi->numpages);
+        return;
+    }
+#endif
 	auto oldf = static_cast<std::int8_t>(fontnumber);
 	auto oldc = fontcolor;
 
@@ -3067,6 +3093,14 @@ std::int16_t TP_DrawShape(
 	// Get width of shape (also, draws a box/shadow, if needed)
 	//
 	width = TP_BoxAroundShape(x, y, shapenum, shapetype);
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::document())
+    {
+        const int height = (shapetype == pis_pic || shapetype == pis_latchpic) ?
+            pictable[shapenum - STARTPICS].height : 64;
+        bstone::n3ds_menu::clear_ink(x, y, width, height);
+    }
+#endif
 
 	// Draw this shape!
 	//
@@ -3412,10 +3446,18 @@ void TP_Print(
 	//
 	LastScan = ScanCode::sc_none;
 
+#if defined(__3DS__) || defined(_3DS)
+    const auto original_color = fontcolor;
+    if (bstone::n3ds_menu::document()) { fontcolor = ENABLED_TEXT_COLOR; }
+#endif
 	last_cur_x = cur_x;
 	last_cur_y = cur_y;
 
-	if ((flags & fl_shadowtext) && (*string != '@'))
+	if ((flags & fl_shadowtext) && (*string != '@')
+#if defined(__3DS__) || defined(_3DS)
+        && !bstone::n3ds_menu::document()
+#endif
+    )
 	{
 		if (fontcolor == bgcolor)
 		{
@@ -3438,6 +3480,9 @@ void TP_Print(
 		USL_DrawString(string);
 	}
 
+#if defined(__3DS__) || defined(_3DS)
+    fontcolor = original_color;
+#endif
 	cur_x = px;
 	cur_y = py;
 

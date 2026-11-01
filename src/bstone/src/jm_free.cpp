@@ -1,3 +1,4 @@
+#include "bstone_3ds_installation.h"
 /*
 BStone: Unofficial source port of Blake Stone: Aliens of Gold and Blake Stone: Planet Strike
 Copyright (c) 1992-2013 Apogee Entertainment, LLC
@@ -627,6 +628,16 @@ void log_found_content(
 
 void find_contents()
 {
+    const auto& launch = bstone::n3ds_install::selection();
+    if (launch.active)
+    {
+        auto& info = get_assets_info();
+        info.set_resources(resources_for_version(launch.version));
+        info.set_version(launch.version);
+        data_dir_ = launch.data_directory + "/";
+        bstone::globals::logger->log_information("Launcher: all original resource SHA-1 signatures verified.");
+        return;
+    }
 	bstone::globals::logger->log_information("Looking for game content.");
 
 	// Games to find.

@@ -97,7 +97,7 @@ auto snd_is_disabled_cvar = bstone::CVar{
 // snd_rate
 
 constexpr auto snd_rate_cvar_name = bstone::StringView{"snd_rate"};
-constexpr auto snd_rate_cvar_default = 0;
+constexpr auto snd_rate_cvar_default = 22050;
 
 auto snd_rate_cvar = bstone::CVar{
 	bstone::CVarInt32Tag{},
@@ -108,31 +108,13 @@ auto snd_rate_cvar = bstone::CVar{
 // snd_mix_size
 
 constexpr auto snd_mix_size_cvar_name = bstone::StringView{"snd_mix_size"};
-constexpr auto snd_mix_size_cvar_default = 20;
+constexpr auto snd_mix_size_cvar_default = 80;
 
 auto snd_mix_size_cvar = bstone::CVar{
 	bstone::CVarInt32Tag{},
 	snd_mix_size_cvar_name,
 	bstone::CVarFlags::none,
 	snd_mix_size_cvar_default};
-
-// snd_driver
-
-constexpr auto snd_driver_cvar_name = bstone::StringView{"snd_driver"};
-constexpr auto snd_driver_cvar_system = bstone::StringView{"system"};
-
-constexpr bstone::StringView snd_driver_cvar_values[] =
-{
-	snd_auto_detect_string,
-	snd_driver_cvar_system,
-};
-
-auto snd_driver_cvar = bstone::CVar{
-	bstone::CVarStringTag{},
-	snd_driver_cvar_name,
-	bstone::CVarFlags::archive,
-	snd_auto_detect_string,
-	bstone::make_span(snd_driver_cvar_values)};
 
 // snd_opl3_type
 
@@ -236,7 +218,6 @@ void sd_initialize_cvars(bstone::CVarMgr& cvar_mgr)
 	cvar_mgr.add(snd_is_disabled_cvar);
 	cvar_mgr.add(snd_rate_cvar);
 	cvar_mgr.add(snd_mix_size_cvar);
-	cvar_mgr.add(snd_driver_cvar);
 	cvar_mgr.add(snd_opl3_type_cvar);
 	cvar_mgr.add(snd_is_sfx_enabled_cvar);
 	cvar_mgr.add(snd_sfx_type_cvar);
@@ -399,18 +380,6 @@ try {
 	sd_scene_sfx_voice_group_.swap(scene_sfx_voice_group);
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
-AudioDriverType sd_get_driver_type_from_cvar() noexcept
-{
-	const auto driver_sv = snd_driver_cvar.get_string();
-
-	if (driver_sv == snd_driver_cvar_system)
-	{
-		return AudioDriverType::system;
-	}
-
-	return AudioDriverType::auto_detect;
-}
-
 AudioSfxType sd_get_sfx_type_from_cvar() noexcept
 {
 	const auto sfx_type_sv = snd_sfx_type_cvar.get_string();
@@ -444,7 +413,8 @@ void sd_startup()
 
 		try
 		{
-			sd_make_mixer(sd_get_driver_type_from_cvar(), rate, mix_size);
+			// auto_detect and system both select SystemAudioMixer on this port.
+            sd_make_mixer(AudioDriverType::system, rate, mix_size);
 			is_driver_initialized = true;
 		}
 		catch (...)
@@ -1300,25 +1270,6 @@ void apply_digitized_sfx()
 	audio_content_mgr->set_is_sfx_digitized(snd_is_sfx_digitized_cvar.get_bool());
 }
 
-AudioDriverType sd_get_audio_driver_type() noexcept
-{
-	return sd_get_driver_type_from_cvar();
-}
-
-void sd_set_audio_driver_type(AudioDriverType audio_driver_type)
-{
-	switch (audio_driver_type)
-	{
-		case AudioDriverType::system:
-			snd_driver_cvar.set_string(snd_driver_cvar_system);
-			break;
-
-		default:
-			snd_driver_cvar.set_string(snd_auto_detect_string);
-			break;
-	}
-}
-
 AudioSfxType sd_cfg_get_sfx_type() noexcept
 {
 	return sd_get_sfx_type_from_cvar();
@@ -1356,28 +1307,4 @@ bool sd_cfg_get_is_sfx_digitized() noexcept
 void sd_cfg_set_is_sfx_digitized(bool is_sfx_digitized)
 {
 	snd_is_sfx_digitized_cvar.set_bool(is_sfx_digitized);
-}
-
-bstone::Opl3Type sd_get_opl3_type() noexcept
-{
-	return sd_get_opl3_type_from_cvar();
-}
-
-void sd_set_opl3_type(bstone::Opl3Type opl3_type)
-{
-	switch (opl3_type)
-	{
-		case bstone::Opl3Type::dbopl:
-			snd_opl3_type_cvar.set_string(snd_opl3_type_cvar_dbopl);
-			break;
-
-		case bstone::Opl3Type::nuked:
-			snd_opl3_type_cvar.set_string(snd_opl3_type_cvar_nuked);
-			break;
-
-		default:
-			sd_log_error("Invalid OPL3 type.");
-			snd_opl3_type_cvar.set_string(snd_opl3_type_cvar_dbopl);
-			break;
-	}
 }

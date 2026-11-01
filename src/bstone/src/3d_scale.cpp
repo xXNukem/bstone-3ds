@@ -6,10 +6,14 @@ SPDX-License-Identifier: GPL-2.0-or-later
 */
 
 
+#include <algorithm>
+#include <cmath>
+
 #include "3d_def.h"
 #include "id_vl.h"
 #include "bstone_sprite.h"
 #include "bstone_sprite_cache.h"
+#include "bstone_3ds_weapons.h"
 #if defined(__3DS__) || defined(_3DS)
 #include <3ds.h>
 #endif
@@ -96,7 +100,7 @@ void generic_scale_shape(
 		}
 	}
 
-	const auto height =
+	auto height =
 		is_player_weapon ?
 		(vga_height * ref_height) / vga_ref_height :
 		ref_height / 4;
@@ -106,44 +110,62 @@ void generic_scale_shape(
 		return;
 	}
 
-	constexpr auto dimension = bstone::Sprite::dimension;
+	auto dimension = bstone::Sprite::dimension;
 
-	constexpr auto mid_bob = 6;
-	constexpr auto bob_start = 6;
-
-	const auto use_bobbing = is_player_weapon && useBounceOffset;
-
-	const auto bounce_offset_n =
-		use_bobbing ?
-		static_cast<int>(bounceOffset) :
-		0;
-
-	const auto bob_offset =
-		use_bobbing ?
-		(vga_height * (bob_start + mid_bob - bounce_offset_n)) / vga_ref_height :
-		0;
+    constexpr auto mid_bob = 6.0;
+    const auto use_bobbing = is_player_weapon && useBounceOffset;
+    // The original oscillator reaches 0..12 with inertia around its neutral 6.
+    // Positive screen Y moves DOWN. Never lift a bottom-trimmed weapon above
+    // its original resting anchor: doing so exposes missing lower sprite rows.
+    const double sway = use_bobbing ?
+        std::max(-6.0, std::min(6.0, bounceOffset - mid_bob)) : 0.0;
+    const int bob_offset_x = use_bobbing ? static_cast<int>(std::lround(
+        (vga_width * sway * 0.25) / vga_ref_width)) : 0;
+    const int bob_offset = use_bobbing ? static_cast<int>(std::lround(
+        (vga_height * std::abs(sway) * 0.5) / vga_ref_height)) : 0;
+    // Opposite half-cycles sway left/right but both dip down (two footfalls).
+    // The existing oscillator supplies start/stop recovery; no new timer or
+    // per-eye state is introduced. Disabled and neutral offsets are both zero.
 
 
 	const auto sprite_ptr = vid_sprite_cache.cache(shapenum);
-	const auto sprite_width = sprite_ptr->get_width();
-	const auto sprite_height = sprite_ptr->get_height();
+    const bstone::n3ds_weapons::Frame* enhanced = nullptr;
+#if (defined(__3DS__) || defined(_3DS)) && defined(BSTONE_ENABLE_AI_WEAPONS)
+    if (is_player_weapon)
+    {
+        const auto enabled = vid_cfg_ai_weapons();
+        enhanced = bstone::n3ds_weapons::get_frame(shapenum, enabled);
+        if (enabled && !bstone::n3ds_weapons::available()) { vid_cfg_ai_weapons(false); }
+    }
+#endif
+    if (enhanced)
+    {
+        dimension = enhanced->dimension;
+        height = (vga_height * enhanced->ref_height) / vga_ref_height;
+    }
+	const auto sprite_width = enhanced ? enhanced->width : sprite_ptr->get_width();
+	const auto sprite_height = enhanced ? enhanced->height : sprite_ptr->get_height();
 
 	const auto half_height = height / 2;
 
 
 	auto offset_x =
 		is_player_weapon ?
-		(viewwidth - height) / 2 :
+        (enhanced ? viewwidth / 2 - (enhanced->anchor_x * height) / dimension +
+            (enhanced->offset_x * vga_width) / vga_ref_width :
+            (viewwidth - height) / 2) + bob_offset_x :
 		xcenter - half_height;
 
 
 
 	const auto offset_y =
 		is_player_weapon ?
-		vga_3d_view_bottom_y - height + bob_offset :
+        (enhanced ? vga_3d_view_bottom_y - (enhanced->anchor_y * height) / dimension +
+            (enhanced->offset_y * vga_height) / vga_ref_height :
+            vga_3d_view_bottom_y - height) + bob_offset :
 		vga_3d_view_top_y + centery - half_height;
 
-	const auto left = sprite_ptr->get_left();
+	const auto left = enhanced ? enhanced->left : sprite_ptr->get_left();
 	auto x1 = offset_x + ((left * height) / dimension);
 
 	if (x1 >= viewwidth)
@@ -153,7 +175,7 @@ void generic_scale_shape(
 
 	auto x2 = x1 + ((sprite_width * height) / dimension);
 
-	const auto top = sprite_ptr->get_top();
+	const auto top = enhanced ? enhanced->top : sprite_ptr->get_top();
 	auto y1 = offset_y + ((top * height) / dimension);
 
 	if (y1 > vga_3d_view_bottom_y)
@@ -162,6 +184,13 @@ void generic_scale_shape(
 	}
 
 	auto y2 = y1 + ((sprite_height * height) / dimension);
+    if (is_player_weapon && top + sprite_height == dimension)
+    {
+        // Separately truncating top and height can leave a one-pixel gap at
+        // rest. A weapon reaching the source canvas bottom is anchored to the
+        // exact projected canvas bottom, then clipped by the existing loop.
+        y2 = offset_y + height;
+    }
 
 
 	const auto tx_delta = static_cast<double>(dimension) / static_cast<double>(height);
@@ -263,7 +292,7 @@ void generic_scale_shape(
 				static_cast<int>(fixed_column >> fixed_shift);
 
 			const auto column =
-				sprite_ptr->get_column(column_index);
+                enhanced ? enhanced->get_column(column_index) : sprite_ptr->get_column(column_index);
 
 			auto fixed_row = fixed_row_begin;
 
@@ -333,7 +362,7 @@ void generic_scale_shape(
 		}
 
 		const auto column_index = static_cast<int>(tx_column);
-		const auto column = sprite_ptr->get_column(column_index);
+		const auto column = enhanced ? enhanced->get_column(column_index) : sprite_ptr->get_column(column_index);
 		auto tx_row = tx_row_begin;
 
 		for (int y = y1; y < y2; ++y)

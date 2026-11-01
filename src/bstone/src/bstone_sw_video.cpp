@@ -9,8 +9,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
 #include <utility>
-#include <chrono>
-#include <cstdio>
 #include "3d_def.h"
 #include "id_in.h"
 #include "id_vh.h"
@@ -30,6 +28,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include <citro2d.h>
 #include "bstone_3ds_hud.h"
 #include "bstone_3ds_intro.h"
+#include "bstone_3ds_menu.h"
+#include "bstone_3ds_display.h"
 
 extern bool n3ds_stereo_active;
 namespace bstone {
@@ -224,12 +224,10 @@ private:
 
 private:
     bool citro3d_initialized_ = false;
-    bool citro2d_initialized_ = false;
     C3D_Tex gpu_screen_texture{};
     C3D_Tex gpu_screen_texture_right{};
     C3D_Tex gpu_ui_texture{};
     bool gpu_textures_ready = false;
-    bool gpu_screen_format_ready = false;
 	VgaBuffer sw_vga_buffer_{};
 	VgaPalette vga_palette_{};
 	PackedPalette palette_{};
@@ -442,36 +440,8 @@ try {
 			gpu_textures_ready = true;
 		}
 
-		// Usar el formato de pantalla que ya probamos.
-		if (!gpu_screen_format_ready)
-		{
-			gfxSetScreenFormat(GFX_TOP, GSP_BGR8_OES);
-			gpu_screen_format_ready = true;
-		}
-
 		
-        // Temporary performance profiler.
-        using ProfileClock = std::chrono::steady_clock;
-
-        static double profile_sums[4]{};
-		static double profile_pixels_sum = 0.0;
-		static double profile_flush_sum = 0.0;
-
-        static int profile_samples = 0;
-        static bool profile_stereo = false;
-
-        static char profile_line1[48] = "MEASURING...";
-        static char profile_line2[48] = "";
-
-        ProfileClock::time_point profile_marks[5];
-		double profile_pixels_frame = 0.0;
-		double profile_flush_frame = 0.0;
-
-        profile_marks[0] = ProfileClock::now();
-
         C3D_FrameBegin(0);
-
-        profile_marks[1] = ProfileClock::now();
 
 		// ---------------------------------------------
 		// 1. Convertir ambos ojos del escenario a texturas GPU.
@@ -481,7 +451,7 @@ try {
 			vid_is_hud && ::n3ds_stereo_active;
 
 		
-        if (vid_is_hud)
+        if (vid_is_hud && !n3ds_menu::active())
         {
             const int eye_count = stereo_active ? 2 : 1;
 
@@ -521,7 +491,6 @@ try {
             left_job.width = vga_width;
             left_job.height = vga_height;
 
-            const auto pixels_start = ProfileClock::now();
 
             if (eye_count == 2)
             {
@@ -553,7 +522,6 @@ try {
                 n3ds_convert_screen(&left_job);
             }
 
-            const auto pixels_end = ProfileClock::now();
 
             // Flush textures only after both CPU conversions finish.
             // Citro3D remains exclusively on the main thread.
@@ -564,18 +532,10 @@ try {
                 C3D_TexFlush(&gpu_screen_texture_right);
             }
 
-            const auto flush_end = ProfileClock::now();
 
-            profile_pixels_frame +=
-                std::chrono::duration<double, std::milli>(
-                    pixels_end - pixels_start).count();
 
-            profile_flush_frame +=
-                std::chrono::duration<double, std::milli>(
-                    flush_end - pixels_end).count();
         }
 
-		profile_marks[2] = ProfileClock::now();
 		// ---------------------------------------------
 		// 2. Convertir la interfaz a textura GPU.
 		// ---------------------------------------------
@@ -586,9 +546,14 @@ try {
         static PackedPalette previous_palette{};
         static bool previous_hud = false;
         static bool ui_cache_valid = false;
+        static bool previous_terminal = false;
+        static std::uint32_t previous_terminal_revision = 0;
+        const bool terminal = n3ds_menu::active();
 
         bool ui_dirty =
             !ui_cache_valid ||
+            previous_terminal != terminal ||
+            (terminal && previous_terminal_revision != n3ds_menu::revision()) ||
             previous_hud != vid_is_hud ||
             previous_palette != palette_ ||
             previous_mask != vid_mask_buffer_ ||
@@ -653,9 +618,8 @@ try {
 							vid_mask_buffer_[src_offset]
 						);
 
-					const u32 rgba =
-						(color << 8) |
-						(visible ? 0xFFU : 0x00U);
+					const u32 rgba = terminal ? n3ds_menu::sample_ui(x, y, palette_.data()) :
+                        ((color << 8) | (visible ? 0xFFU : 0x00U));
 
 					texels[swizzle_y[y] + swizzle_x[x]] = rgba;
 
@@ -668,11 +632,12 @@ try {
             previous_mask = vid_mask_buffer_;
             previous_palette = palette_;
             previous_hud = vid_is_hud;
+            previous_terminal = terminal;
+            previous_terminal_revision = n3ds_menu::revision();
             ui_cache_valid = true;
 
 		}
 
-		profile_marks[3] = ProfileClock::now();
 		// ---------------------------------------------
 		// 3. Definir las imágenes para Citro2D.
 		// ---------------------------------------------
@@ -736,6 +701,10 @@ try {
 			gpu_top_right_
 		};
 
+        // Snapshot the ambient animation once for the two UI presentations.
+        n3ds_menu::begin_frame();
+        const float menu_slider = n3ds_menu::active() ? osGet3DSliderState() : 0.0f;
+
 		for (int eye = 0; eye < 2; ++eye)
 		{
 			auto* target = top_targets[eye];
@@ -745,8 +714,9 @@ try {
 				C2D_Color32(0, 0, 0, 255));
 
 			C2D_SceneBegin(target);
+            n3ds_menu::begin_eye(eye, menu_slider);
 
-			if (vid_is_hud)
+			if (vid_is_hud && !n3ds_menu::active())
 			{
 				// Stereo eye order diagnostic.
 				// Diagnostic: identical image for both eyes.
@@ -755,25 +725,32 @@ try {
 					screen_image_right :
 					screen_image;
 
+                // 5:3 fills the native panel; 4:3 preserves its proportions
+                // with 40-pixel side bars. Both eyes share this presentation.
+                const float display_width = vid_cfg_is_widescreen() ? 400.0f : 320.0f;
 				C2D_DrawImageAt(
 					eye_image,
-					0.0f,
+                    (400.0f - display_width) / 2.0f,
 					0.0f,
 					0.5f,
 					nullptr,
-					400.0f / vga_width,
+					display_width / vga_width,
 					240.0f / vga_height);
 			}
 
-			// The 2D user interface is identical for both eyes.
+            n3ds_menu::draw_background();
+
+			// The cached terminal text uses its moderate reading plane.
 			C2D_DrawImageAt(
 				ui_image,
-				0.0f,
+                n3ds_menu::content_shift(),
 				0.0f,
 				0.6f,
 				nullptr,
 				400.0f / vga_ref_width,
 				240.0f / vga_ref_height);
+
+            n3ds_menu::draw();
 		}
 
 		// ---------------------------------------------
@@ -786,25 +763,15 @@ try {
 
 		C2D_SceneBegin(gpu_bottom_);
 
-        if (vid_is_hud)
+        if (n3ds_menu::active())
+        {
+            n3ds_menu::draw_bottom();
+        }
+        else if (vid_is_hud)
         {
             n3ds_hud::draw();
 
-            // Temporary performance overlay.
-            C2D_DrawRectSolid(
-                8, 65, 0.79f,
-                190, 29,
-                C2D_Color32(2, 9, 5, 255));
 
-            n3ds_hud::draw_text(
-                12, 68,
-                profile_line1,
-                C2D_Color32(168, 255, 179, 255));
-
-            n3ds_hud::draw_text(
-                12, 80,
-                profile_line2,
-                C2D_Color32(168, 255, 179, 255));
         }
         else
         {
@@ -813,73 +780,7 @@ try {
 
         C3D_FrameEnd(0);
 
-        profile_marks[4] = ProfileClock::now();
 
-        if (vid_is_hud)
-        {
-            // Don't mix 2D and stereoscopic samples.
-            if (profile_stereo != stereo_active)
-            {
-                profile_stereo = stereo_active;
-                profile_samples = 0;
-				profile_pixels_sum = 0.0;
-				profile_flush_sum = 0.0;
-
-                for (double& value : profile_sums)
-                    value = 0.0;
-
-                std::snprintf(
-                    profile_line1,
-                    sizeof(profile_line1),
-                    "MEASURING %s...",
-                    stereo_active ? "3D" : "2D");
-
-                profile_line2[0] = '\0';
-            }
-
-            for (int i = 0; i < 4; ++i)
-            {
-                profile_sums[i] +=
-                    std::chrono::duration<double, std::milli>(
-                        profile_marks[i + 1] -
-                        profile_marks[i]).count();
-            }
-
-			profile_pixels_sum += profile_pixels_frame;
-			profile_flush_sum += profile_flush_frame;
-            ++profile_samples;
-
-            if (profile_samples >= 15)
-            {
-                const double count =
-                    static_cast<double>(profile_samples);
-
-				std::snprintf(
-					profile_line1,
-					sizeof(profile_line1),
-					"%s W%.1f PIX%.1f FL%.1f",
-					profile_stereo ? "3D" : "2D",
-					profile_sums[0] / count,
-					profile_pixels_sum / count,
-					profile_flush_sum / count);
-
-                std::snprintf(
-                    profile_line2,
-                    sizeof(profile_line2),
-                    "UI %.1f DRAW %.1f",
-                    profile_sums[2] / count,
-                    profile_sums[3] / count);
-
-				for (double& value : profile_sums)
-					value = 0.0;
-
-				profile_pixels_sum = 0.0;
-				profile_flush_sum = 0.0;
-
-				profile_samples = 0;
-
-            }
-        }
 
 				// Yield CPU time for audio without
 				// imposing a full millisecond per frame.
@@ -1059,55 +960,12 @@ try {
 	initialize_vga_buffer();
 	vid_initialize_ui_buffer();
 
-	if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE))
-	{
-		BSTONE_THROW_STATIC_SOURCE("Failed to initialize Citro3D.");
-	}
-
-	citro3d_initialized_ = true;
-
-	if (!C2D_Init(C2D_DEFAULT_MAX_OBJECTS))
-	{
-		BSTONE_THROW_STATIC_SOURCE("Failed to initialize Citro2D.");
-	}
-
-	citro2d_initialized_ = true;
-	C2D_Prepare();
-
-	// Enable native 3DS stereoscopic display.
-	gfxSet3D(true);
-
-	// Left eye.
-	gpu_top_ = C2D_CreateScreenTarget(
-		GFX_TOP,
-		GFX_LEFT);
-
-	if (!gpu_top_)
-	{
-		BSTONE_THROW_STATIC_SOURCE(
-			"Failed to create left eye render target.");
-	}
-
-	// Right eye.
-	gpu_top_right_ = C2D_CreateScreenTarget(
-		GFX_TOP,
-		GFX_RIGHT);
-
-	if (!gpu_top_right_)
-	{
-		BSTONE_THROW_STATIC_SOURCE(
-			"Failed to create right eye render target.");
-	}
-
-	gfxSetScreenFormat(GFX_BOTTOM, GSP_BGR8_OES);
-
-	gpu_bottom_ = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
-
-	if (!gpu_bottom_)
-	{
-		BSTONE_THROW_STATIC_SOURCE(
-			"Failed to create bottom GPU screen target.");
-	}
+    // Reuse the launcher's Citro context/targets. SDL still owns gfx/HID.
+    n3ds_display::initialize();
+    citro3d_initialized_ = true;
+    gpu_top_ = n3ds_display::top();
+    gpu_top_right_ = n3ds_display::top(true);
+    gpu_bottom_ = n3ds_display::bottom();
 
 } BSTONE_END_FUNC_CATCH_ALL_THROW_NESTED
 
@@ -1146,16 +1004,8 @@ void SwVideo::uninitialize_gpu() noexcept
             C3D_TexDelete(&gpu_screen_texture);
             gpu_textures_ready = false;
         }
-        if (gpu_bottom_) C3D_RenderTargetDelete(gpu_bottom_);
-        if (gpu_top_right_) C3D_RenderTargetDelete(gpu_top_right_);
-        if (gpu_top_) C3D_RenderTargetDelete(gpu_top_);
         gpu_bottom_ = gpu_top_right_ = gpu_top_ = nullptr;
-        if (citro2d_initialized_)
-        {
-            C2D_Fini();
-            citro2d_initialized_ = false;
-        }
-        C3D_Fini();
+        n3ds_display::shutdown();
         citro3d_initialized_ = false;
     }
 }

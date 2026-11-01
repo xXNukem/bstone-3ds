@@ -2908,9 +2908,6 @@ extern int last_map_tile_x;
 extern int last_map_tile_y;
 
 // BBi
-const int min_mouse_sensitivity = 0;
-const int max_mouse_sensitivity = 54;
-const int default_mouse_sensitivity = 5;
 // BBi
 
 //
@@ -3978,6 +3975,7 @@ void sys_sleep_for(int milliseconds);
 
 void sys_default_sleep_for();
 
+std::string get_profile_read_path(const std::string& filename);
 const std::string& get_profile_dir();
 
 const std::string& get_screenshot_dir();

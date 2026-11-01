@@ -52,6 +52,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #if defined(__3DS__) || defined(_3DS)
 #include <3ds.h>
 #include "bstone_3ds_intro.h"
+#include "bstone_3ds_menu.h"
+#include "bstone_3ds_launcher.h"
+#include "bstone_3ds_installation.h"
+#include "bstone_3ds_display.h"
 #endif
 
 
@@ -7100,7 +7104,7 @@ void read_high_scores()
 {
 	auto is_succeed = true;
 
-	auto scores_path = get_profile_dir() + get_score_file_name();
+	auto scores_path = get_profile_read_path(get_score_file_name());
 
 	auto scores = HighScores{};
 	scores.resize(MaxScores);
@@ -7640,7 +7644,7 @@ void read_text_config()
 
 	set_config_defaults();
 
-	const auto& config_path = get_profile_dir() + text_config_file_name;
+	const auto config_path = get_profile_read_path(text_config_file_name);
 
 	bstone::FileStream stream{};
 
@@ -8115,6 +8119,10 @@ bool LoadLevel(
 	int level_index)
 	try
 {
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::begin_loading();
+    const auto loading_guard = bstone::make_scope_exit([]() { bstone::n3ds_menu::end_loading(); });
+#endif
 	extern bool ForceLoadDefault;
 
 	bool oldloaded = loadedgame;
@@ -8204,8 +8212,14 @@ bool LoadLevel(
 
 			for (int i = 0; i < MAPSIZE; ++i)
 			{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 				for (int j = 0; j < MAPSIZE; ++j)
 				{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 					const auto index = (i * MAPSIZE) + j;
 					const auto byte_index = index / 8;
 					const auto bit_index = index % 8;
@@ -8237,8 +8251,14 @@ bool LoadLevel(
 
 			for (int i = 0; i < MAPSIZE; ++i)
 			{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 				for (int j = 0; j < MAPSIZE; ++j)
 				{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 					const auto index = (i * MAPSIZE) + j;
 					const auto byte_index = index / 8;
 					const auto bit_index = index % 8;
@@ -8275,8 +8295,14 @@ bool LoadLevel(
 
 			for (int i = 0; i < NUMAREAS; ++i)
 			{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 				for (int j = 0; j < NUMAREAS; ++j)
 				{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 					const auto index = (i * NUMAREAS) + j;
 					const auto byte_index = index / 8;
 					const auto bit_index = index % 8;
@@ -8314,6 +8340,9 @@ bool LoadLevel(
 
 		for (int i = 1; i < actor_count; ++i)
 		{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 			GetNewActor();
 			new_actor->unarchive(archiver);
 			actorat[new_actor->tilex][new_actor->tiley] = new_actor;
@@ -8332,6 +8361,9 @@ bool LoadLevel(
 
 		for (objtype* actor = objlist; actor; actor = actor->next)
 		{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 			switch (actor->obclass)
 			{
 				case arc_barrierobj:
@@ -8379,6 +8411,9 @@ bool LoadLevel(
 
 		for (int i = 0; i < laststatobj_index; ++i)
 		{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 			statobjlist[i].unarchive(archiver);
 		}
 
@@ -8402,6 +8437,9 @@ bool LoadLevel(
 
 		for (int i = 0; i < MAXDOORS; ++i)
 		{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 			doorobjlist[i].unarchive(archiver);
 		}
 
@@ -8425,6 +8463,9 @@ bool LoadLevel(
 
 		for (int i = 0; i < MAXEAWALLS; ++i)
 		{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 			eaList[i].unarchive(archiver);
 		}
 
@@ -8432,6 +8473,9 @@ bool LoadLevel(
 
 		for (int i = 0; i < GOLDIE_MAX_SPAWNS; ++i)
 		{
+#if defined(__3DS__) || defined(_3DS)
+        bstone::n3ds_menu::loading_step();
+#endif
 			GoldieList[i].unarchive(archiver);
 		}
 
@@ -8942,6 +8986,10 @@ bool LoadTheGame(
 	const std::string& file_name)
 	try
 {
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::begin_loading();
+    const auto loading_guard = bstone::make_scope_exit([]() { bstone::n3ds_menu::end_loading(); });
+#endif
 	bool is_succeed = true;
 
 	auto file_stream = bstone::FileStream{};
@@ -9008,6 +9056,9 @@ bool LoadTheGame(
 	}
 
 
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::loading_step();
+#endif
 	// Read in HEAD chunk
 	//
 	Buffer head_buffer;
@@ -9020,6 +9071,9 @@ bool LoadTheGame(
 		}
 	}
 
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::loading_step();
+#endif
 	// Read in LVXX chunk
 	//
 	Buffer lvxx_buffer;
@@ -9033,6 +9087,9 @@ bool LoadTheGame(
 	}
 
 
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::loading_step();
+#endif
 	// Deserialize HEAD chunk
 	//
 	if (is_succeed)
@@ -9078,6 +9135,9 @@ bool LoadTheGame(
 		}
 	}
 
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::loading_step();
+#endif
 	// Deserialize LVXX chunk
 	//
 	if (is_succeed)
@@ -9104,11 +9164,17 @@ bool LoadTheGame(
 				}
 
 				g_playtemp.write(buffer, read_count);
+#if defined(__3DS__) || defined(_3DS)
+                bstone::n3ds_menu::loading_step();
+#endif
 			}
 		}
 	}
 
 
+#if defined(__3DS__) || defined(_3DS)
+    bstone::n3ds_menu::loading_step();
+#endif
 	// Finish loading
 	//
 	NewViewSize();
@@ -9539,11 +9605,23 @@ void CycleColors()
 		}
 	}
 
+#if defined(__3DS__) || defined(_3DS)
+    if (bstone::n3ds_menu::active())
+    {
+        if (changes) { VL_SetPalette(CRNG_LOW, CRNG_SIZE, (std::uint8_t*)cbuffer); }
+        bstone::n3ds_menu::idle();
+        return;
+    }
+#endif
 	bool use_delay = false;
+    const bool refresh_ui = false;
 
-	if (changes)
+	if (changes || refresh_ui)
 	{
-		VL_SetPalette(CRNG_LOW, CRNG_SIZE, (std::uint8_t*)cbuffer);
+        if (changes)
+        {
+            VL_SetPalette(CRNG_LOW, CRNG_SIZE, (std::uint8_t*)cbuffer);
+        }
 		VL_RefreshScreen();
 
 		use_delay = !vid_has_vsync;
@@ -9694,13 +9772,16 @@ void NewViewSize()
 
 void pre_quit()
 {
+    static bool shutdown_started = false;
+    if (shutdown_started) { return; }
+    shutdown_started = true;
+    const auto shutdown_guard = bstone::make_scope_exit([](){ ShutdownId(); });
 	if (is_config_loaded)
 	{
 		WriteConfig();
 		write_high_scores();
 	}
 
-	ShutdownId();
 }
 
 [[noreturn]]
@@ -9735,7 +9816,7 @@ void DemoLoop()
 
 		vid_is_movie = false;
 
-		if (!gp_no_intro_outro() && !gp_no_intro_outro())
+		if (!gp_no_intro_outro())
 		{
 			vid_is_movie = true;
 
@@ -9857,13 +9938,17 @@ void DemoLoop()
 				//
 				// credits page
 				//
+#if defined(__3DS__) || defined(_3DS)
+                bstone::n3ds_menu::begin(assets_info.is_ps(), false);
+                const auto terminal_attract_guard = bstone::make_scope_exit([]()
+                { bstone::n3ds_menu::end(); });
+#endif
 				DrawCreditsPage();
 				VW_UpdateScreen();
 				VW_FadeIn();
-				if (IN_UserInput(TickBase * 6))
-				{
-					break;
-				}
+#if !defined(__3DS__) && !defined(_3DS)
+				if (IN_UserInput(TickBase * 6)) { break; }
+#endif
 				VW_FadeOut();
 
 
@@ -9926,6 +10011,10 @@ void DemoLoop()
 
 void DrawCreditsPage()
 {
+#if defined(__3DS__) || defined(_3DS)
+    HelpPresenter(nullptr, false, CREDITSTEXT, false, "CREDITS");
+    return;
+#endif
 	PresenterInfo pi;
 
 	CA_CacheScreen(BACKGROUND_SCREENPIC);
@@ -9947,41 +10036,17 @@ void DrawCreditsPage()
 }
 
 
-int main()
+int main(int argc, char** argv)
 {
-    // Enable New 3DS higher CPU clock and L2 cache.
     osSetSpeedupEnable(true);
-
-
-
-    char args_3ds[][32] =
-    {
-        "bstone",
-        "--aog",
-        "--data_dir", "sdmc:/3ds/bstone/",
-        "--profile_dir", "sdmc:/3ds/bstone/",
-        "--snd_is_disabled", "0",
-		"--snd_driver", "system",
-		"--snd_mix_size", "80",
-		"--snd_rate", "22050",
-		"--vid_is_ui_stretched", "1",
-    };
-
-    constexpr int count = sizeof(args_3ds) / sizeof(args_3ds[0]);
-    char* argv_3ds[count];
-
-    for (int i = 0; i < count; ++i)
-        argv_3ds[i] = args_3ds[i];
-
-    g_args.initialize(count, argv_3ds);
-
-
+    g_args.initialize(argc, argv);
+    bstone::n3ds_install::create_directories("sdmc:/3ds/bstone/");
 
 	const auto opt_is_log_sync = g_args.has_option("log_sync");
 	const auto opt_is_log_flush_every_message = g_args.has_option("log_flush_every_message");
 
-	const auto& profile_dir = get_profile_dir();
-	const auto& log_file_path = profile_dir + "bstone_log.txt";
+    // No profile is chosen until the resource-independent selector completes.
+    const auto log_file_path = std::string{"sdmc:/3ds/bstone/bstone_log.txt"};
 
 	auto logger_open_param = bstone::LoggerOpenParam{};
 	logger_open_param.is_synchronous = opt_is_log_sync;
@@ -10029,6 +10094,7 @@ int main()
 	SysLogger sys_logger{*bstone::globals::logger};
 
 	auto is_failed = false;
+    bool engine_started = false;
 	auto error_message = std::string{};
 
 	bstone::globals::ccmd_mgr = bstone::make_ccmd_mgr(bstone::globals::max_ccmds);
@@ -10041,9 +10107,12 @@ int main()
 
 		bstone::globals::sys_system_mgr = bstone::sys::make_system_mgr(sys_logger);
 
-		freed_main();
-
-		DemoLoop();
+        if (bstone::n3ds_launcher::run())
+        {
+            engine_started = true;
+            freed_main();
+            DemoLoop();
+        }
 	}
 	catch (const QuitException&)
 	{
@@ -10054,7 +10123,16 @@ int main()
 		error_message = bstone::get_nested_message();
 	}
 
-	pre_quit();
+    try
+    {
+        if (engine_started) { pre_quit(); }
+    }
+    catch (...)
+    {
+        is_failed = true;
+        error_message = bstone::get_nested_message();
+    }
+    bstone::n3ds_display::shutdown();
 
 	bstone::globals::sys_event_mgr = nullptr;
 	bstone::globals::sys_system_mgr = nullptr;
@@ -10085,7 +10163,12 @@ int main()
 
 void InitDestPath()
 {
-	const auto requested_data_dir = g_args.get_option_value("data_dir");
+    if (bstone::n3ds_install::selection().active)
+    {
+        data_dir_ = bstone::n3ds_install::selection().data_directory + "/";
+        return;
+    }
+    const auto requested_data_dir = g_args.get_option_value("data_dir");
 
 	if (requested_data_dir.is_empty())
 	{
@@ -10722,8 +10805,16 @@ void sys_default_sleep_for()
 	sys_sleep_for(10);
 }
 
+std::string get_profile_read_path(const std::string& filename)
+{
+    const auto& selected = bstone::n3ds_install::selection();
+    return selected.active ? bstone::n3ds_install::profile_read_path(selected, filename) : get_profile_dir() + filename;
+}
+
 const std::string& get_profile_dir()
 {
+    if (bstone::n3ds_install::selection().active)
+    { return bstone::n3ds_install::selection().profile_directory; }
 	static std::string profile_dir;
 	static auto is_initialized = false;
 

@@ -25,45 +25,46 @@ IntroFonts& fonts()
     return result;
 }
 
-void set_stage(Stage stage)
+void cache_fonts()
 {
-    if (stage != Stage::none)
+    auto& data = fonts();
+
+    // Keep copies of the genuine BStone fonts.
+    // The JAM animation temporarily unloads
+    // some of the original game resources.
+    if (data.title.empty() || data.menu.empty())
     {
-        auto& data = fonts();
-
-        // Keep copies of the genuine BStone fonts.
-        // The JAM animation temporarily unloads
-        // some of the original game resources.
-        if (data.title.empty() || data.menu.empty())
+        for (int number = 3; number <= 4; ++number)
         {
-            for (int number = 3; number <= 4; ++number)
+            auto& destination =
+                number == 3 ? data.title : data.menu;
+
+            if (!destination.empty())
             {
-                auto& destination =
-                    number == 3 ? data.title : data.menu;
+                continue;
+            }
 
-                if (!destination.empty())
-                {
-                    continue;
-                }
+            const auto index =
+                static_cast<std::int16_t>(
+                    STARTFONT + number);
 
-                const auto index =
-                    static_cast<std::int16_t>(
-                        STARTFONT + number);
+            CA_CacheGrChunk(index);
 
-                CA_CacheGrChunk(index);
+            const auto& source = grsegs[index];
 
-                const auto& source = grsegs[index];
-
-                if (source.size() >= sizeof(fontstruct))
-                {
-                    destination.assign(
-                        source.begin(),
-                        source.end());
-                }
+            if (source.size() >= sizeof(fontstruct))
+            {
+                destination.assign(
+                    source.begin(),
+                    source.end());
             }
         }
     }
+}
 
+void set_stage(Stage stage)
+{
+    if (stage != Stage::none) { cache_fonts(); }
     current_stage() = stage;
 }
 
@@ -198,7 +199,8 @@ void draw_centered(
     int y,
     bool is_title,
     int scale,
-    u32 color)
+    u32 color,
+    bool afterglow)
 {
     const auto& data =
         is_title ? fonts().title : fonts().menu;
@@ -222,13 +224,16 @@ void draw_centered(
 
     // Subtle static phosphor afterglow.
     // No animation or extra frame updates.
-    draw_font(
-        x + 1,
-        y + 1,
-        text,
-        data,
-        scale,
-        C2D_Color32(30, 81, 43, 255));
+    if (afterglow)
+    {
+        draw_font(
+            x + 1,
+            y + 1,
+            text,
+            data,
+            scale,
+            C2D_Color32(30, 81, 43, 255));
+    }
 
     draw_font(
         x,
@@ -243,10 +248,8 @@ void draw_centered(
 // Green phosphor CRT presentation.
 // --------------------------------------------------
 
-void draw()
+static void draw_stage(Stage stage, bool planet_strike, bool menu_title)
 {
-    const auto stage = current_stage();
-
     if (stage == Stage::none)
     {
         return;
@@ -450,23 +453,26 @@ void draw()
         {
             draw_centered(
                 "BLAKE STONE:",
-                65, true, 2, bright);
+                65, true, 2, bright, !menu_title);
 
             draw_centered(
-                "ALIENS OF GOLD",
-                103, true, 2, green);
+                planet_strike ? "PLANET STRIKE" : "ALIENS OF GOLD",
+                103, true, 2, green, !menu_title);
 
             draw_centered(
                 "3DS",
-                141, true, 2, bright);
+                141, true, 2, bright, !menu_title);
 
             C2D_DrawRectSolid(
                 70, 183, 0.5f,
                 180, 1, frame);
 
-            draw_centered(
-                "PRESS ANY KEY TO CONTINUE",
-                193, false, 1, green);
+            if (!menu_title)
+            {
+                draw_centered(
+                    "PRESS ANY KEY TO CONTINUE",
+                    193, false, 1, green);
+            }
 
             break;
         }
@@ -481,7 +487,19 @@ void draw()
 
     draw_centered(
         "BSTONE 3DS",
-        216, false, 1, dim);
+        216, false, 1, dim, !menu_title);
+}
+
+void draw_menu_title(bool planet_strike)
+{
+    draw_stage(Stage::title, planet_strike, true);
+}
+
+void draw()
+{
+    const auto stage = current_stage();
+    if (stage == Stage::none) { return; }
+    draw_stage(stage, get_assets_info().is_ps(), false);
 }
 
 } // namespace n3ds_intro

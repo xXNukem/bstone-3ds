@@ -5,6 +5,7 @@
 #include "bstone_3ds_messages.h"
 #include "bstone_3ds_intro.h"
 #include <citro2d.h>
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -912,7 +913,8 @@ void draw_status()
     // -----------------------------------------
 
     draw_text(10, 212, "FLOOR", dim);
-    draw_text(62, 212, "LIVES", dim);
+    const bool planet_strike = get_assets_info().is_ps();
+    draw_text(62, 212, planet_strike ? "DETS" : "LIVES", dim);
 
     std::snprintf(
         number, sizeof(number),
@@ -924,8 +926,8 @@ void draw_status()
     std::snprintf(
         number, sizeof(number),
         "%d",
-        gamestate.lives > 0 ?
-            static_cast<int>(gamestate.lives) : 0);
+        planet_strike ? std::max(0, static_cast<int>(gamestate.plasma_detonators)) :
+            std::max(0, static_cast<int>(gamestate.lives)));
 
     draw_text(62, 223, number, bright);
 
@@ -1042,20 +1044,21 @@ void draw_status()
         C2D_Color32(235, 166, 65, 255)
     };
 
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < (planet_strike ? 3 : 5); ++i)
     {
+        const int card = planet_strike && i == 2 ? 3 : i; // PS: red/yellow/blue.
         const float x =
             static_cast<float>(222 + i * 18);
 
         C2D_DrawRectSolid(
             x, 199, 0.5f,
-            15, 11, key_colors[i]);
+            15, 11, key_colors[card]);
 
         C2D_DrawRectSolid(
             x + 2, 201, 0.6f,
             11, 7,
-            gamestate.numkeys[keys[i]] > 0 ?
-                key_colors[i] :
+            gamestate.numkeys[keys[card]] > 0 ?
+                key_colors[card] :
                 crt_background());
     }
 
@@ -1160,47 +1163,7 @@ void draw()
     // Interferencia decorativa.
     draw_interference();
 
-    // ---------------------------------------------
-    // Temporary FPS counter for performance testing.
-    // ---------------------------------------------
 
-    static u64 fps_sample_start = osGetTime();
-    static int fps_frame_count = 0;
-    static int current_fps = 0;
-
-    ++fps_frame_count;
-
-    const u64 now = osGetTime();
-    const u64 elapsed = now - fps_sample_start;
-
-    if (elapsed >= 1000)
-    {
-        current_fps = static_cast<int>(
-            (static_cast<u64>(fps_frame_count) * 1000) /
-            elapsed);
-
-        fps_frame_count = 0;
-        fps_sample_start = now;
-    }
-
-    // Small overlay in the upper-right HUD area.
-    C2D_DrawRectSolid(
-        246, 8, 0.79f,
-        61, 16,
-        C2D_Color32(2, 9, 5, 255));
-
-    char fps_text[20];
-
-    std::snprintf(
-        fps_text,
-        sizeof(fps_text),
-        "FPS %d",
-        current_fps);
-
-    draw_text(
-        250, 12,
-        fps_text,
-        crt_bright());
 }
 
 

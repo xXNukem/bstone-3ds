@@ -34,6 +34,7 @@ Stage& current_stage();
 
 IntroFonts& fonts();
 
+void cache_fonts();
 void set_stage(Stage stage);
 
 int font_text_width(
@@ -53,8 +54,10 @@ void draw_centered(
     int y,
     bool is_title,
     int scale,
-    u32 color);
+    u32 color,
+    bool afterglow = true);
 
+void draw_menu_title(bool planet_strike);
 void draw();
 
 } // namespace n3ds_intro

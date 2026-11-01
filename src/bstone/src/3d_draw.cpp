@@ -34,6 +34,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #define MASKABLE_POSTS (MASKABLE_DOORS)
 #if defined(__3DS__) || defined(_3DS)
 #include <3ds.h>
+#include "bstone_3ds_weapons.h"
 #endif
 
 namespace
@@ -1322,6 +1323,14 @@ void initialize_weapon_constants()
 		SPR_BFG_WEAPON1,
 		0,
 	};
+#if (defined(__3DS__) || defined(_3DS)) && defined(BSTONE_ENABLE_AI_WEAPONS)
+    bstone::n3ds_weapons::initialize(data_dir_, assets_info.is_ps() ?
+        bstone::n3ds_weapons::Game::planet_strike : bstone::n3ds_weapons::Game::aog,
+        {{SPR_KNIFEREADY, SPR_PISTOLREADY, SPR_MACHINEGUNREADY,
+          SPR_CHAINREADY, SPR_GRENADEREADY, SPR_BFG_WEAPON1}});
+    // Also normalizes an archived ON setting when the pack is absent.
+    (void)vid_cfg_ai_weapons();
+#endif
 }
 
 
@@ -1348,7 +1357,9 @@ void DrawPlayerWeapon()
 
 			const auto height = assets_info.is_aog() ? 128 : 88;
 
-			useBounceOffset = !gp_no_weapon_bobbing() && assets_info.is_ps();
+			// Both editions use the existing shared weapon scaler. It already
+            // copies each visible weapon pixel to both eyes at zero parallax.
+            useBounceOffset = !gp_no_weapon_bobbing();
 			scale_player_weapon(shapenum, height);
 			useBounceOffset = false;
 		}

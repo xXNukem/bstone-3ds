@@ -619,7 +619,7 @@ void ControlMovement(
 		}
 	}
 
-	if (controly != 0)
+	if (controly != 0 || strafe_value != 0)
 	{
 		bounceOk = 8;
 	}

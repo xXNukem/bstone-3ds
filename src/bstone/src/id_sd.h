@@ -119,8 +119,6 @@ void sd_mute(bool mute);
 void sd_pause_scene_sfx(bool is_pause);
 void sd_pause_music(bool is_pause);
 
-AudioDriverType sd_get_audio_driver_type() noexcept;
-void sd_set_audio_driver_type(AudioDriverType audio_driver_type);
 
 AudioSfxType sd_cfg_get_sfx_type() noexcept;
 void sd_cfg_set_sfx_type(AudioSfxType sfx_type);
@@ -128,7 +126,5 @@ void sd_apply_sfx_type();
 bool sd_cfg_get_is_sfx_digitized() noexcept;
 void sd_cfg_set_is_sfx_digitized(bool is_sfx_digitized);
 void apply_digitized_sfx();
-bstone::Opl3Type sd_get_opl3_type() noexcept;
-void sd_set_opl3_type(bstone::Opl3Type opl3_type);
 
 #endif // BSTONE_ID_SD_INCLUDED

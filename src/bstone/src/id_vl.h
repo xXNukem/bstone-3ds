@@ -263,8 +263,10 @@ std::uint8_t vl_get_pixel(
 
 void vl_update_widescreen();
 
-bool vid_cfg_is_ui_stretched() noexcept;
-void vid_cfg_set_is_ui_stretched(bool is_enabled);
+bool vid_cfg_menu_crt() noexcept;
+void vid_cfg_menu_crt(bool enabled);
+bool vid_cfg_ai_weapons() noexcept;
+void vid_cfg_ai_weapons(bool enabled);
 
 bool vid_cfg_is_widescreen() noexcept;
 void vid_cfg_set_is_widescreen(bool is_enabled);

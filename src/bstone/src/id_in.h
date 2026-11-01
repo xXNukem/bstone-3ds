@@ -333,11 +333,7 @@ extern bool allcaps;
 void in_initialize_cvars(bstone::CVarMgr& cvar_mgr);
 void in_initialize_ccmds(bstone::CCmdMgr& ccmd_mgr);
 
-bool in_is_mouse_enabled() noexcept;
-void in_set_is_mouse_enabled(bool is_enabled);
 
-int in_get_mouse_sensitivity() noexcept;
-void in_set_mouse_sensitivity(int sensitivity);
 
 // DEBUG - put names in prototypes
 
@@ -358,6 +354,14 @@ extern const std::string& IN_GetScanName(ScanCode);
 std::uint8_t IN_MouseButtons();
 
 extern bool in_is_mouse_grabbed;
+
+// Stable archived IDs: do not reorder existing schemes.
+enum class InControlScheme { classic, modern, modern_cstick, count };
+InControlScheme in_get_control_scheme() noexcept;
+void in_set_control_scheme(InControlScheme scheme);
+const char* in_control_scheme_name(InControlScheme scheme) noexcept;
+// Normalized [-1000,1000] gameplay axes. Classic and menu contexts return zero.
+void in_get_3ds_motion(int& forward, int& strafe, int& turn);
 
 bool in_grab_mouse(bool grab);
 void in_handle_events();

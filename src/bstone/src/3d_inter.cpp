@@ -17,6 +17,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "id_vh.h"
 #include "id_vl.h"
 #include "3d_menu.h"
+#include "bstone_scope_exit.h"
+#if defined(__3DS__) || defined(_3DS)
+#include "bstone_3ds_menu.h"
+#endif
 #include "gfxv.h"
 
 
@@ -249,6 +253,12 @@ void CheckHighScore(
 	std::int32_t score,
 	std::uint16_t other)
 {
+#if defined(__3DS__) || defined(_3DS)
+    const bool owns_terminal = !bstone::n3ds_menu::active();
+    if (owns_terminal) { bstone::n3ds_menu::begin(get_assets_info().is_ps(), false); }
+    const auto terminal_guard = bstone::make_scope_exit([&]()
+    { if (owns_terminal) { bstone::n3ds_menu::end(); } });
+#endif
 	std::uint16_t i, j;
 	std::int16_t n;
 	auto myscore = HighScore{};
