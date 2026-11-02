@@ -45,14 +45,14 @@ def test_classic():
 #include <cstdio>
 using u32=std::uint32_t;
 enum class ScanCode { sc_none, sc_w, sc_s, sc_left_arrow, sc_right_arrow,
-    sc_control, sc_space, sc_a, sc_d, sc_e, sc_q, sc_tab, sc_escape };
+    sc_control, sc_space, sc_a, sc_d, sc_e, sc_q, sc_tab, sc_escape, sc_return, sc_up_arrow, sc_down_arrow };
 constexpr u32 KEY_UP=1u<<0, KEY_DOWN=1u<<1, KEY_LEFT=1u<<2, KEY_RIGHT=1u<<3,
     KEY_A=1u<<4, KEY_B=1u<<5, KEY_L=1u<<6, KEY_R=1u<<7, KEY_ZL=1u<<8,
     KEY_ZR=1u<<9, KEY_X=1u<<10, KEY_START=1u<<11, KEY_SELECT=1u<<12,
     KEY_Y=1u<<13,KEY_DRIGHT=KEY_RIGHT,KEY_DLEFT=KEY_LEFT;
-bool vid_is_hud=true;
+bool ingame=true,vid_is_hud=false;
 namespace bstone { namespace n3ds_menu { bool active(){return false;} } }
-struct Keys { std::array<bool,13> values{};
+struct Keys { std::array<bool,16> values{};
     bool& operator[](ScanCode key) { return values[static_cast<int>(key)]; }
 } Keyboard;
 ScanCode LastScan=ScanCode::sc_none;

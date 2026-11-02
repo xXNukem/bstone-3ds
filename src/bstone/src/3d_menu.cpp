@@ -857,8 +857,9 @@ void HelpPresenter(
     {
         const auto scheme = in_get_control_scheme();
         const std::string gameplay = scheme == InControlScheme::classic ?
-            "D-PAD UP / DOWN: MOVE FORWARD / BACK\r"
-            "D-PAD LEFT / RIGHT: TURN\r"
+            "CIRCLE PAD / D-PAD:\r"
+            "UP / DOWN: FORWARD / BACK\r"
+            "LEFT / RIGHT: TURN\r"
             "L / R: STRAFE LEFT / RIGHT\r"
             "A: FIRE\r"
             "B: USE / OPEN DOORS\r"
@@ -866,7 +867,7 @@ void HelpPresenter(
             std::string{
             "CIRCLE PAD UP / DOWN: FORWARD / BACK\r"
             "CIRCLE PAD LEFT / RIGHT: STRAFE\r"
-            "A / Y: TURN RIGHT / LEFT\r"
+            "Y / A: TURN LEFT / RIGHT\r"
             "B: USE / OPEN DOORS\r"
             "R: FIRE\r"
             "D-PAD RIGHT / LEFT: NEXT / PREV WEAPON\r"} +

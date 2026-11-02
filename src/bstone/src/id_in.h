@@ -255,6 +255,7 @@ using Bindings = Binding[k_max_bindings];
 
 extern Bindings in_bindings;
 
+void in_clear_bindings();
 void in_set_default_bindings();
 
 struct CursorInfo

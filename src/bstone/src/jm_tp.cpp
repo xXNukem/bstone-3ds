@@ -1970,6 +1970,14 @@ static std::int16_t save_cx[TP_CURSOR_SAVES + 1] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 static std::int16_t save_cy[TP_CURSOR_SAVES + 1] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 static std::int16_t pagex[2], pagey[2];
 
+// Script commands are byte streams; command letters may have odd addresses.
+// ARM halfword loads and C++ uint16_t dereferences require alignment.
+static std::uint16_t TP_ReadCode(const char* text)
+{
+    return static_cast<unsigned char>(text[0]) |
+        (static_cast<std::uint16_t>(static_cast<unsigned char>(text[1])) << 8);
+}
+
 void TP_Presenter(
 	PresenterInfo* pinfo)
 {
@@ -2014,6 +2022,9 @@ void TP_Presenter(
 	fontnumber = pi->fontnumber;
 	TP_PurgeAllGfx();
 	TP_CachePage(first_ch);
+    // Native terminal fonts are retained copies, not necessarily cached grsegs.
+    // The presenter measures text using the original font, including ^CE.
+    CA_CacheGrChunk(STARTFONT + fontnumber);
 	font = (fontstruct*)grsegs[STARTFONT + fontnumber].data();
 	flags = fl_presenting | fl_startofline;
 	if (*first_ch == TP_CONTROL_CHAR)
@@ -2303,7 +2314,7 @@ void TP_HandleCodes()
 		*(first_ch + 1) = toupper(*(first_ch + 1));
 #endif
 		std::uint16_t subcode;
-		std::uint16_t code = *reinterpret_cast<const std::uint16_t*>(first_ch);
+		std::uint16_t code = TP_ReadCode(first_ch);
 		first_ch += 2;
 
 		switch (code)
@@ -2319,7 +2330,7 @@ void TP_HandleCodes()
 				{
 				case TP_CONTROL_CHAR:
 					s++;
-					subcode = *reinterpret_cast<const std::uint16_t*>(s);
+					subcode = TP_ReadCode(s);
 					s += 2;
 					switch (subcode)
 					{
@@ -3328,7 +3339,7 @@ void TP_CachePage(
 			*script = toupper(*script);
 			*(script + 1) = toupper(*(script + 1));
 #endif
-			code = *reinterpret_cast<const std::uint16_t*>(script);
+			code = TP_ReadCode(script);
 			script += 2;
 			switch (code)
 			{
@@ -3665,7 +3676,7 @@ void TP_InitScript(
 			*script = toupper(*script);
 			*(script + 1) = toupper(*(script + 1));
 #endif
-			code = *reinterpret_cast<const std::uint16_t*>(script);
+			code = TP_ReadCode(script);
 			script += 2;
 			switch (code)
 			{

@@ -34,6 +34,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 #include "bstone_3ds_menu.h"
 #endif
 #include "id_sd.h"
+#include "id_us.h"
 #include "id_vl.h"
 #include "bstone_ascii.h"
 #include "bstone_char_conv.h"
@@ -808,8 +809,10 @@ void in_handle_events()
 
 		previous_keys = keys;
 
+        // Gameplay state is independent of the transient HUD rendering flag.
         // Menus always retain A confirm / B back and directional navigation.
-        const auto scheme = !vid_is_hud || bstone::n3ds_menu::active() ?
+        const bool menu_input = !ingame || bstone::n3ds_menu::active();
+        const auto scheme = menu_input ?
             InControlScheme::classic : in_get_control_scheme();
         static auto previous_scheme = InControlScheme::classic;
         if (scheme != previous_scheme)
@@ -832,6 +835,22 @@ void in_handle_events()
             if (!binding.retained || down) { Keyboard[binding.key] = down; }
         }
 
+        // Keep legacy text-entry/presenter key consumers working through the
+        // same HID owner, without injecting Enter/Escape during gameplay.
+        Keyboard[ScanCode::sc_return] = menu_input && (keys & KEY_A);
+        Keyboard[ScanCode::sc_up_arrow] = menu_input && (keys & KEY_UP);
+        Keyboard[ScanCode::sc_down_arrow] = menu_input && (keys & KEY_DOWN);
+        if (menu_input)
+        {
+            if (pressed & KEY_UP) { LastScan = ScanCode::sc_up_arrow; }
+            if (pressed & KEY_DOWN) { LastScan = ScanCode::sc_down_arrow; }
+            if (pressed & KEY_LEFT) { LastScan = ScanCode::sc_left_arrow; }
+            if (pressed & KEY_RIGHT) { LastScan = ScanCode::sc_right_arrow; }
+            if (pressed & KEY_A) { LastScan = ScanCode::sc_return; }
+            if (pressed & KEY_B) { LastScan = ScanCode::sc_escape; }
+            Keyboard[ScanCode::sc_escape] = (keys & KEY_B) != 0;
+        }
+
 		// -----------------------------------------
 		// START: abrir menú principal.
 		//
@@ -846,7 +865,7 @@ void in_handle_events()
 			LastScan = ScanCode::sc_escape;
 		}
 
-		if (!(keys & KEY_START))
+		if (!(keys & KEY_START) && !(menu_input && (keys & KEY_B)))
 		{
 			Keyboard[ScanCode::sc_escape] = false;
 		}
@@ -1125,12 +1144,15 @@ std::uint8_t IN_MouseButtons()
 
 InControlScheme in_get_control_scheme() noexcept
 {
-    return static_cast<InControlScheme>(in_control_scheme_cvar.get_int32());
+    const auto value = in_control_scheme_cvar.get_int32();
+    return value >= 0 && value < static_cast<int>(InControlScheme::count) ?
+        static_cast<InControlScheme>(value) : InControlScheme::classic;
 }
 
 void in_set_control_scheme(InControlScheme scheme)
 {
-    in_control_scheme_cvar.set_int32(static_cast<int>(scheme));
+    const auto value = static_cast<int>(scheme);
+    in_control_scheme_cvar.set_int32(value >= 0 && value < static_cast<int>(InControlScheme::count) ? value : 0);
     IN_ClearKeysDown();
 }
 
@@ -1148,7 +1170,7 @@ void in_get_3ds_motion(int& forward, int& strafe, int& turn)
 {
     forward = strafe = turn = 0;
     const auto scheme = in_get_control_scheme();
-    if (scheme == InControlScheme::classic || !vid_is_hud || bstone::n3ds_menu::active()) { return; }
+    if (scheme == InControlScheme::classic || !ingame || bstone::n3ds_menu::active()) { return; }
     // Use HID already owned/scanned by SDL/libctru; do not initialize a second
     // HID/IRRST service. Positive Circle Y is forward; positive X is right.
     circlePosition circle{};

@@ -139,52 +139,17 @@ bool Sdl2EventMgr::do_poll_event(Event& e)
 
 	while (SDL_PollEvent(&sdl_e))
 	{
-				if (sdl_e.type == SDL_CONTROLLERBUTTONDOWN ||
-					sdl_e.type == SDL_CONTROLLERBUTTONUP)
-				{
-					auto key = KeyboardKey::none;
+        // HID owns 3DS buttons in id_in and ReadAnyControl. SDL's fixed
+        // A/START=Enter, B=Escape and D-Pad=arrows bypass selectable layouts.
+        if (sdl_e.type == SDL_CONTROLLERBUTTONDOWN ||
+            sdl_e.type == SDL_CONTROLLERBUTTONUP ||
+            sdl_e.type == SDL_CONTROLLERAXISMOTION ||
+            sdl_e.type == SDL_JOYBUTTONDOWN || sdl_e.type == SDL_JOYBUTTONUP ||
+            sdl_e.type == SDL_JOYAXISMOTION || sdl_e.type == SDL_JOYHATMOTION)
+        {
+            continue;
+        }
 
-					switch (sdl_e.cbutton.button)
-					{
-						case SDL_CONTROLLER_BUTTON_A:
-						case SDL_CONTROLLER_BUTTON_START:
-							key = KeyboardKey::enter;
-							break;
-
-						case SDL_CONTROLLER_BUTTON_B:
-							key = KeyboardKey::esc;
-							break;
-
-						case SDL_CONTROLLER_BUTTON_DPAD_UP:
-							key = KeyboardKey::up;
-							break;
-
-						case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-							key = KeyboardKey::down;
-							break;
-
-						case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-							key = KeyboardKey::left;
-							break;
-
-						case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-							key = KeyboardKey::right;
-							break;
-					}
-
-					if (key != KeyboardKey::none)
-					{
-						e.keyboard.type = EventType::keyboard;
-						e.keyboard.timestamp = sdl_e.common.timestamp;
-						e.keyboard.is_pressed =
-							sdl_e.type == SDL_CONTROLLERBUTTONDOWN;
-						e.keyboard.key = key;
-						e.keyboard.repeat_count = 0;
-						e.keyboard.window_id = 0;
-
-						return true;
-					}
-				}
 		if (handle_event(sdl_e, e))
 		{
 			e.common.timestamp = sdl_e.common.timestamp;
