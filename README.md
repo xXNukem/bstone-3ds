@@ -283,9 +283,7 @@ Since AI-assisted programming has become a fairly hot topic, I'd rather be strai
 
 **Generative AI was used throughout development to help inspect and understand the original BStone codebase, investigate bugs, work on code changes, refactor and optimize parts of the engine, and speed up the overall porting process.**
 
-I directed the project, made the design decisions, reviewed the changes and tested the results on real Nintendo 3DS hardware.
-
-AI also helped with some of the less exciting parts of development, including writing painfully long documentation like this README.
+I directed the project, made the design decisions, reviewed the changes and tested the results on real Nintendo 3DS hardware. AI was also used to verify and test the other bunch of code that i wrote by myself for this proyect.
 
 Because apparently getting a 1993 FPS running in stereoscopic 3D on a handheld wasn't enough paperwork.
 
