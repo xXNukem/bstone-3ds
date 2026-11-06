@@ -285,8 +285,6 @@ Since AI-assisted programming has become a fairly hot topic, I'd rather be strai
 
 I directed the project, made the design decisions, reviewed the changes and tested the results on real Nintendo 3DS hardware. AI was also used to verify and test the other bunch of code that i wrote by myself for this proyect.
 
-Because apparently getting a 1993 FPS running in stereoscopic 3D on a handheld wasn't enough paperwork.
-
 The underlying BStone engine, the original Blake Stone games and their respective authors deserve full credit for the work this port is built upon.
 
 ## Credits
