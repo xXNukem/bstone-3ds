@@ -160,6 +160,9 @@ constexpr N3dsButtonBinding modern_buttons[] = {
     // KEY_LEFT/RIGHT also include Circle Pad directions; weapons use D-Pad ONLY.
     {KEY_DRIGHT, ScanCode::sc_e, true, true},
     {KEY_DLEFT, ScanCode::sc_q, true, true},
+    // ZL/ZR (New 3DS shoulders or Circle Pad Pro) mirror Classic's weapon cycle.
+    {KEY_ZL, ScanCode::sc_e, true, true},
+    {KEY_ZR, ScanCode::sc_q, true, true},
     {KEY_X, ScanCode::sc_tab, true, false},
 };
 constexpr N3dsControlLayout control_layouts[] = {
@@ -1170,28 +1173,28 @@ void in_get_3ds_motion(int& forward, int& strafe, int& turn)
 {
     forward = strafe = turn = 0;
     const auto scheme = in_get_control_scheme();
-    if (scheme == InControlScheme::classic || !ingame || bstone::n3ds_menu::active()) { return; }
+    if (!ingame || bstone::n3ds_menu::active()) { return; }
     // Use HID already owned/scanned by SDL/libctru; do not initialize a second
     // HID/IRRST service. Positive Circle Y is forward; positive X is right.
-    circlePosition circle{};
-    hidCircleRead(&circle);
     const auto axis = [](int value, int deadzone)
     {
         const int magnitude = std::min(156, std::abs(value));
         return magnitude <= deadzone ? 0 :
             (value < 0 ? -1 : 1) * (magnitude - deadzone) * 1000 / (156 - deadzone);
     };
+    // Every layout turns with the C-Stick (New 3DS) / Circle Pad Pro nub.
+    circlePosition cstick{};
+    hidCstickRead(&cstick);
+    turn = axis(cstick.dx, 15);
+    // Classic keeps its digital Circle Pad movement.
+    if (scheme == InControlScheme::classic) { return; }
+    circlePosition circle{};
+    hidCircleRead(&circle);
     forward = axis(circle.dy, 20);
     strafe = axis(circle.dx, 20);
     // Preserve the same maximum walking speed on diagonals.
     const int magnitude = static_cast<int>(std::sqrt(double(forward * forward + strafe * strafe)));
     if (magnitude > 1000) { forward = forward * 1000 / magnitude; strafe = strafe * 1000 / magnitude; }
-    if (scheme == InControlScheme::modern_cstick)
-    {
-        circlePosition cstick{};
-        hidCstickRead(&cstick);
-        turn = axis(cstick.dx, 15);
-    }
 }
 
 void IN_Startup()

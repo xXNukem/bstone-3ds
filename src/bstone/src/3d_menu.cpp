@@ -863,15 +863,17 @@ void HelpPresenter(
             "L / R: STRAFE LEFT / RIGHT\r"
             "A: FIRE\r"
             "B: USE / OPEN DOORS\r"
-            "ZL / ZR: NEXT / PREVIOUS WEAPON\r" :
+            "ZL / ZR: NEXT / PREVIOUS WEAPON\r"
+            "C-STICK: TURN LEFT / RIGHT\r" :
             std::string{
             "CIRCLE PAD UP / DOWN: FORWARD / BACK\r"
             "CIRCLE PAD LEFT / RIGHT: STRAFE\r"
             "Y / A: TURN LEFT / RIGHT\r"
             "B: USE / OPEN DOORS\r"
             "R: FIRE\r"
-            "D-PAD RIGHT / LEFT: NEXT / PREV WEAPON\r"} +
-            (scheme == InControlScheme::modern_cstick ? "C-STICK: TURN LEFT / RIGHT\r" : "");
+            "D-PAD RIGHT / LEFT: NEXT / PREV WEAPON\r"
+            "ZL / ZR: NEXT / PREVIOUS WEAPON\r"
+            "C-STICK: TURN LEFT / RIGHT\r"};
         const std::string manual = std::string{"^ST0^CE"} + in_control_scheme_name(scheme) + " CONTROLS\r\r" + gameplay +
             "X: TOGGLE AUTOMAP\r"
             "START: PAUSE / OPEN TERMINAL\r"
