@@ -102,8 +102,8 @@ int main(){
   map(0);circle={0,156};cstick={};move();assert(controly==-BASEMOVE&&strafe_value==0&&controlx==0);
   circle={156,0};move();assert(strafe_value==BASEMOVE&&controly==0&&controlx==0);
   circle={-156,-156};move();assert(strafe_value<0&&controly>0&&std::hypot(strafe_value,controly)<=BASEMOVE);
-  circle={0,0};cstick={156,0};move();assert(controlx==(s==InControlScheme::modern_cstick?BASEMOVE:0));
-  cstick={-156,0};move();assert(controlx==(s==InControlScheme::modern_cstick?-BASEMOVE:0));
+  circle={0,0};cstick={156,0};move();assert(controlx==BASEMOVE);
+  cstick={-156,0};move();assert(controlx==-BASEMOVE);
   cstick={0,156};move();assert(controlx==0); // No fabricated vertical freelook.
   cstick={156,0};map(KEY_A);move();assert(controlx==BASEMOVE);map(0);
   // Same maximum run/walk speed and tick scaling as the existing movement path.
@@ -128,8 +128,13 @@ int main(){
  // Returning to Classic ignores analog sampling and keeps existing button roles.
  in_set_control_scheme(InControlScheme::classic);map(0);map(KEY_A|KEY_R);
  assert(Keyboard[ScanCode::sc_control]&&Keyboard[ScanCode::sc_d]);
- int f,st,tr;in_get_3ds_motion(f,st,tr);assert(f==0&&st==0&&tr==0);
- std::puts("PASS: production Modern/C-Stick layouts, 130321 analog positions, actual movement speeds/ticks, drift/diagonal bounds, held weapons, menus, layout changes, production action dispatch for AOG/PS, real CVar archive roundtrip/invalid values and Classic restoration; physical feel pending");
+ // Classic keeps the digital Circle Pad; only the C-Stick is sampled, for turning.
+ circle={156,156};cstick={156,156};int f,st,tr;in_get_3ds_motion(f,st,tr);assert(f==0&&st==0&&tr==1000);
+ cstick={-156,0};in_get_3ds_motion(f,st,tr);assert(tr==-1000);
+ cstick={15,156};in_get_3ds_motion(f,st,tr);assert(tr==0);
+ cstick={156,0};menu_active=true;in_get_3ds_motion(f,st,tr);assert(tr==0);menu_active=false;
+ cstick={};circle={};
+ std::puts("PASS: production Modern/C-Stick layouts, 130321 analog positions, actual movement speeds/ticks, drift/diagonal bounds, held weapons, menus, layout changes, production action dispatch for AOG/PS, real CVar archive roundtrip/invalid values, Classic restoration, C-Stick turning and ZL/ZR in every layout; physical feel pending");
 }
 '''
 # Use the actual engine binding table and action dispatch, rather than a
@@ -174,6 +179,9 @@ int main(){
    map(s==InControlScheme::classic?KEY_ZL:KEY_DRIGHT);PollKeyboardButtons();assert(next_count==before+1);
    map(0);map(s==InControlScheme::classic?KEY_ZR:KEY_DLEFT);
    before=previous_count;PollKeyboardButtons();assert(previous_count==before+1);map(0);
+   // ZL/ZR (Circle Pad Pro / New 3DS shoulders) cycle weapons in every layout.
+   map(KEY_ZL);before=next_count;PollKeyboardButtons();assert(next_count==before+1);map(0);
+   map(KEY_ZR);before=previous_count;PollKeyboardButtons();assert(previous_count==before+1);map(0);
   }
  }
 ''')

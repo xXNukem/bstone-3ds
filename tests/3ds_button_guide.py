@@ -109,7 +109,8 @@ int main(int argc,char**argv){
  for(auto scheme:{InControlScheme::classic,InControlScheme::modern,InControlScheme::modern_cstick}){
   const auto text=guide(scheme);
   assert(text.find(in_control_scheme_name(scheme))!=std::string::npos);
-  assert((text.find("C-STICK: TURN")!=std::string::npos)==(scheme==InControlScheme::modern_cstick));
+  assert((text.find("C-STICK: TURN")!=std::string::npos)); // C-Stick turns in every layout.
+  assert(text.find("ZL / ZR: NEXT / PREVIOUS WEAPON")!=std::string::npos);
   for(int repeat=0;repeat<100;++repeat){
    // Exercise both alignments of the byte stream, as allocated guide strings do.
    std::vector<char> storage(text.size()+2);std::memcpy(storage.data()+repeat%2,text.c_str(),text.size()+1);

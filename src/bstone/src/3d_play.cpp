@@ -499,7 +499,7 @@ void PollKeyboardMove()
 		}
 	}
 
-    if (in_get_control_scheme() != InControlScheme::classic)
+    // Classic reports only C-Stick turn; Modern layouts also report Circle Pad movement.
     {
         int forward, strafe, turn;
         in_get_3ds_motion(forward, strafe, turn);
